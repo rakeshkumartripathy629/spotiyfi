@@ -8,7 +8,7 @@ import libraryRouter from './routes/library.js'
 
 const app = express()
 
-app.use(cors({ origin: process.env.CLIENT_URL || true }))
+app.use(cors())
 app.use(express.json())
 
 app.get('/api/health', (req, res) => {
