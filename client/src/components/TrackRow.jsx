@@ -50,12 +50,12 @@ export default function TrackRow({
   return (
     <div className="group grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3 rounded-md px-3 py-2 hover:bg-spotify-hover md:grid-cols-[2rem_minmax(0,1fr)_minmax(0,1fr)_auto]">
       <div className="flex items-center justify-center">
-        <span className="w-6 text-center text-sm text-spotify-text group-hover:hidden">
+        <span className="hidden w-6 text-center text-sm text-spotify-text md:block md:group-hover:hidden">
           {index + 1}
         </span>
         <button
           onClick={() => playTracks(list, index)}
-          className="hidden text-spotify-green group-hover:block"
+          className="text-spotify-green md:hidden md:group-hover:block"
           title="Play"
         >
           <Play className="h-4 w-4 fill-current" />
