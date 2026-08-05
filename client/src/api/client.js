@@ -15,9 +15,13 @@ api.interceptors.response.use(
   (res) => res.data,
   async (err) => {
     const { config } = err
-    if (config && !config.__retry && (!err.response || err.response.status >= 500)) {
-      config.__retry = 1
-      await new Promise((r) => setTimeout(r, 2000))
+    if (
+      config &&
+      (config.__retryCount || 0) < 4 &&
+      (!err.response || err.response.status >= 500)
+    ) {
+      config.__retryCount = (config.__retryCount || 0) + 1
+      await new Promise((r) => setTimeout(r, 2000 * config.__retryCount))
       return api(config)
     }
     const msg = err.response?.data?.error || 'Something went wrong'
