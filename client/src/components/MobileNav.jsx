@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 
 export default function MobileNav() {
   const { user, logout } = useAuth()
-  const item = ({ isActive }) =>
+  const item = ({ isActive } = {}) =>
     `flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[11px] font-semibold ${
       isActive ? 'text-spotify-green' : 'text-spotify-text'
     }`
