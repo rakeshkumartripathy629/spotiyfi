@@ -150,7 +150,10 @@ export function PlayerProvider({ children }) {
         ytPlayerRef.current.setVolume(Math.round(volumeRef.current * 100))
       } catch {}
     } catch {
-      if (currentIdRef.current) setFullStatus('preview')
+      if (currentIdRef.current) {
+        setFullStatus('preview')
+        audioRef.current?.play().catch(() => setIsPlaying(false))
+      }
     }
   }
 
@@ -179,8 +182,12 @@ export function PlayerProvider({ children }) {
         return
       }
       setFullStatus('preview')
+      audioRef.current?.play().catch(() => setIsPlaying(false))
     } catch {
-      if (currentIdRef.current === String(track.id)) setFullStatus('preview')
+      if (currentIdRef.current === String(track.id)) {
+        setFullStatus('preview')
+        audioRef.current?.play().catch(() => setIsPlaying(false))
+      }
     }
   }
 
@@ -201,12 +208,18 @@ export function PlayerProvider({ children }) {
     }
     ytModeRef.current = false
     const a = audioRef.current
-    setFullStatus(track.full ? 'full' : fullEnabledRef.current ? 'resolving' : 'preview')
+    const needFull = !track.full && fullEnabledRef.current && track.title
+    setFullStatus(track.full ? 'full' : needFull ? 'resolving' : 'preview')
     setProgress(0)
     setDuration(0)
     a.src = track.previewUrl
-    a.play().catch(() => setIsPlaying(false))
-    if (!track.full && fullEnabledRef.current && track.title) resolveFull(track)
+    a.pause()
+    setIsPlaying(false)
+    if (needFull) {
+      resolveFull(track)
+    } else {
+      a.play().catch(() => setIsPlaying(false))
+    }
   }
   playAtRef.current = playAt
 
