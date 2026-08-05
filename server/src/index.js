@@ -2,7 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import mongoose from 'mongoose'
-import { connectDB } from './config/db.js'
+import { connectDB, mongoStatus } from './config/db.js'
 import musicRouter from './routes/music.js'
 import authRouter from './routes/auth.js'
 import libraryRouter from './routes/library.js'
@@ -12,18 +12,14 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
-app.get('/api/health', async (req, res) => {
-  let db = 'not-connected'
-  if (mongoose.connection.readyState === 1) {
-    const t = Date.now()
-    try {
-      await mongoose.connection.db.admin().ping()
-      db = `${Date.now() - t}ms`
-    } catch (err) {
-      db = `err:${err.message}`
-    }
-  }
-  res.json({ ok: true, service: 'sqotify-api', db, time: new Date().toISOString() })
+app.get('/api/health', (req, res) => {
+  res.json({
+    ok: true,
+    service: 'sqotify-api',
+    mongo: mongoStatus,
+    readyState: mongoose.connection.readyState,
+    time: new Date().toISOString(),
+  })
 })
 
 app.use('/api/music', musicRouter)
