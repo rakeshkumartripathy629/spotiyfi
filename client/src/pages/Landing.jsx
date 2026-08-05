@@ -47,10 +47,6 @@ export default function Landing() {
           Log in
         </Link>
       </div>
-
-      <p className="mt-8 text-xs text-spotify-text">
-        Naya account banate hi apna naam, apni history — koi aur nahi dekh sakta.
-      </p>
     </div>
   )
 }
