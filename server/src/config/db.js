@@ -6,14 +6,13 @@ async function attemptConnect() {
   const uri = process.env.MONGO_URI
   const t0 = Date.now()
   await mongoose.connect(uri, {
-    family: 6,
     keepAlive: true,
     maxPoolSize: 10,
     minPoolSize: 1,
-    serverSelectionTimeoutMS: 15000,
-    connectTimeoutMS: 10000,
+    serverSelectionTimeoutMS: 30000,
+    connectTimeoutMS: 30000,
     socketTimeoutMS: 60000,
-    heartbeatFrequencyMS: 2000,
+    heartbeatFrequencyMS: 5000,
   })
   console.log(`[DB] MongoDB connected in ${Date.now() - t0}ms`)
 }
