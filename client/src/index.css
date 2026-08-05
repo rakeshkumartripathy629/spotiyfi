@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-spotify-green: #1db954;
+  --color-spotify-dark: #121212;
+  --color-spotify-card: #181818;
+  --color-spotify-hover: #282828;
+  --color-spotify-text: #b3b3b3;
+}
+
+html, body, #root {
+  height: 100%;
+  background-color: #121212;
+  color: #fff;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: #121212; }
+::-webkit-scrollbar-thumb { background: #3e3e3e; border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: #555; }
