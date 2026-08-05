@@ -8,6 +8,7 @@ import {
   getRecent,
   getArtistSongs,
   getMoods,
+  searchJamendo,
 } from '../utils/musicApi.js'
 
 const router = Router()
@@ -94,6 +95,18 @@ router.get('/artist-songs', async (req, res) => {
     res.json({ tracks })
   } catch (err) {
     res.status(502).json({ error: 'Failed to load artist songs', detail: err.message })
+  }
+})
+
+router.get('/jamendo', async (req, res) => {
+  const q = (req.query.q || '').trim()
+  if (!q) return res.status(400).json({ error: 'Missing query ?q=' })
+  try {
+    const data = await searchJamendo(q, Number(req.query.limit) || 24)
+    if (!data.enabled) return res.json({ enabled: false, tracks: [] })
+    res.json(data)
+  } catch (err) {
+    res.status(502).json({ error: 'Failed to load Jamendo', detail: err.message })
   }
 })
 

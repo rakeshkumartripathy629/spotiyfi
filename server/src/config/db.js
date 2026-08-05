@@ -8,13 +8,11 @@ async function attemptConnect() {
   const uri = process.env.MONGO_URI
   const t0 = Date.now()
   await mongoose.connect(uri, {
-    keepAlive: true,
     maxPoolSize: 10,
     minPoolSize: 1,
     serverSelectionTimeoutMS: 30000,
     connectTimeoutMS: 30000,
     socketTimeoutMS: 60000,
-    heartbeatFrequencyMS: 5000,
   })
   mongoStatus.connected = true
   mongoStatus.lastError = ''

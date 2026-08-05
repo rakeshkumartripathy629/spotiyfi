@@ -5,6 +5,7 @@ const ITUNES_SEARCH = 'https://itunes.apple.com/search'
 const ITUNES_LOOKUP = 'https://itunes.apple.com/lookup'
 const RSS_CHARTS = (country, limit) =>
   `https://rss.applemarketingtools.com/api/v2/${country}/music/most-played/${limit}/songs.json`
+const JAMENDO_TRACKS = 'https://api.jamendo.com/v3.0/tracks/'
 
 const cache = new Map()
 const CACHE_TTL = 60 * 60 * 1000
@@ -125,10 +126,49 @@ const PLAYER_CLIENTS = [
   null,
 ]
 
+export async function searchJamendo(q, limit = 24) {
+  const clientId = process.env.JAMENDO_CLIENT_ID
+  if (!clientId) return { enabled: false, tracks: [] }
+  const key = `jamendo:${q}:${limit}`
+  return cached(key, async () => {
+    const { data } = await axios.get(JAMENDO_TRACKS, {
+      params: {
+        client_id: clientId,
+        format: 'json',
+        limit,
+        search: q,
+        include: 'musicinfo',
+        audioformat: 'mp32',
+      },
+    })
+    const tracks = (data.results || []).map((t) => ({
+      id: `jmd_${t.id}`,
+      title: t.name,
+      artist: t.artist_name,
+      album: t.album_name || '',
+      artwork: (t.image || t.album_image || '').replace('500x500', '300x300'),
+      previewUrl: t.audio || t.audiodownload || null,
+      duration: (t.duration || 0) * 1000,
+      genre: t.musicinfo?.tags?.genres?.join(', ') || '',
+      collectionId: `jmd_${t.album_id || t.id}`,
+      releaseDate: t.releasedate || null,
+      full: true,
+    }))
+    return { enabled: true, tracks: tracks.filter((t) => t.previewUrl) }
+  })
+}
+
 export async function resolveFullTrack(title, artist = '') {
   const key = `${artist} - ${title}`
   const hit = fullCache.get(key)
   if (hit && Date.now() - hit.ts < FULL_TTL) return hit.url
+
+  const jamendo = await searchJamendo(`${artist} ${title}`, 5).catch(() => ({ enabled: false, tracks: [] }))
+  if (jamendo.enabled && jamendo.tracks.length) {
+    const url = jamendo.tracks[0].previewUrl
+    fullCache.set(key, { url, ts: Date.now() })
+    return url
+  }
 
   const query = `ytsearch1:${artist} ${title} official audio`.trim()
   let lastError = ''

@@ -42,6 +42,7 @@ export const music = {
   recent: (limit = 20) => api.get('/music/recent', { params: { limit } }),
   moods: () => api.get('/music/moods'),
   artistSongs: (q) => api.get('/music/artist-songs', { params: { q } }),
+  jamendo: (q, limit = 24) => api.get('/music/jamendo', { params: { q, limit } }),
   full: (title, artist) => api.post('/music/full', { title, artist }),
 }
 

@@ -12,6 +12,7 @@ export default function Search() {
   const [country, setCountry] = useState('IN')
   const [countries, setCountries] = useState({})
   const [tracks, setTracks] = useState([])
+  const [jamendo, setJamendo] = useState([])
   const [loading, setLoading] = useState(false)
   const [expanding, setExpanding] = useState(false)
   const [expanded, setExpanded] = useState(false)
@@ -28,6 +29,7 @@ export default function Search() {
     setSearched(true)
     setExpanded(false)
     setExpanding(false)
+    setJamendo([])
     music
       .search(q, country, 50)
       .then((res) => {
@@ -35,6 +37,12 @@ export default function Search() {
       })
       .catch(() => alive && setTracks([]))
       .finally(() => alive && setLoading(false))
+    music
+      .jamendo(q, 24)
+      .then((res) => {
+        if (alive && res.enabled) setJamendo(res.tracks)
+      })
+      .catch(() => {})
     return () => {
       alive = false
     }
@@ -142,6 +150,25 @@ export default function Search() {
               <TrackRow key={t.id} track={t} index={i} list={tracks} showAlbum />
             ))}
           </div>
+
+          {jamendo.length > 0 && (
+            <section className="mt-8">
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <h2 className="text-xl font-bold">
+                  Full songs — Jamendo
+                  <span className="text-sm font-normal text-spotify-text"> ({jamendo.length})</span>
+                </h2>
+                <span className="rounded-full bg-spotify-green/20 px-2 py-0.5 text-[10px] font-bold text-spotify-green">
+                  FULL
+                </span>
+              </div>
+              <div className="overflow-hidden rounded-md bg-spotify-card/50">
+                {jamendo.map((t, i) => (
+                  <TrackRow key={t.id} track={t} index={i} list={jamendo} showAlbum />
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
     </div>

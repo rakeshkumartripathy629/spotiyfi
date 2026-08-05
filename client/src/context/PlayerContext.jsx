@@ -114,12 +114,12 @@ export function PlayerProvider({ children }) {
     setQueue(q)
     recordRecent(track)
     const a = audioRef.current
-    setFullStatus(fullEnabledRef.current ? 'resolving' : 'preview')
+    setFullStatus(track.full ? 'full' : fullEnabledRef.current ? 'resolving' : 'preview')
     setProgress(0)
     setDuration(0)
     a.src = track.previewUrl
     a.play().catch(() => setIsPlaying(false))
-    if (fullEnabledRef.current && track.title) resolveFull(track)
+    if (!track.full && fullEnabledRef.current && track.title) resolveFull(track)
   }
   playAtRef.current = playAt
 

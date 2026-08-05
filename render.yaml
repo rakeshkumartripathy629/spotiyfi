@@ -16,6 +16,8 @@ services:
         sync: false
       - key: CLIENT_URL
         sync: false
+      - key: JAMENDO_CLIENT_ID
+        sync: false
 
   - type: web
     name: sqotify-web
