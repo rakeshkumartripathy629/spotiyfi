@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { RefreshCw } from 'lucide-react'
 import { music } from '../api/client'
 import TrackRow from '../components/TrackRow'
 import Spinner from '../components/Spinner'
@@ -19,29 +20,35 @@ export default function Home() {
   const [fresh, setFresh] = useState([])
   const [moods, setMoods] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    let alive = true
+  const load = useCallback(() => {
     setLoading(true)
-    Promise.all([
+    setError('')
+    Promise.allSettled([
       Promise.all(
-        TRENDING.map((s) => music.charts(s.country, 10).then((res) => ({ ...s, tracks: res.tracks })))
+        TRENDING.map((s) =>
+          music.charts(s.country, 10).then((res) => ({ ...s, tracks: res.tracks }))
+        )
       ),
       music.recent(20),
       music.moods(),
-    ])
-      .then(([trending, recentRes, moodRes]) => {
-        if (!alive) return
-        setSections(trending)
-        setFresh(recentRes.tracks)
-        setMoods(moodRes.moods || [])
-      })
-      .catch(() => alive && setSections([]))
-      .finally(() => alive && setLoading(false))
-    return () => {
-      alive = false
-    }
+    ]).then(([trending, rec, mood]) => {
+      setSections(trending.status === 'fulfilled' ? trending.value : [])
+      setFresh(rec.status === 'fulfilled' ? rec.value.tracks : [])
+      setMoods(mood.status === 'fulfilled' ? mood.value.moods : [])
+      setError(
+        trending.status === 'rejected' && rec.status === 'rejected' && mood.status === 'rejected'
+          ? 'Music load nahi ho paya. Server abhi jaga raha hoga — retry karo.'
+          : ''
+      )
+      setLoading(false)
+    })
   }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
@@ -56,6 +63,18 @@ export default function Home() {
         <Spinner />
       ) : (
         <>
+          {error && (
+            <div className="mb-6 flex items-center gap-3 rounded-md bg-amber-500/15 px-4 py-3 text-sm text-amber-400">
+              <span>{error}</span>
+              <button
+                onClick={load}
+                className="flex items-center gap-1 rounded-full bg-amber-500/20 px-3 py-1 font-bold text-amber-400 hover:bg-amber-500/30"
+              >
+                <RefreshCw className="h-3.5 w-3.5" /> Retry
+              </button>
+            </div>
+          )}
+
           {recent.length > 0 && (
             <section className="mb-8">
               <h2 className="mb-3 text-xl font-bold">
@@ -111,6 +130,10 @@ export default function Home() {
               </div>
             </section>
           ))}
+
+          {!error && !sections.length && !fresh.length && !moods.length && recent.length === 0 && (
+            <p className="text-center text-spotify-text">Koi songs nahi mila.</p>
+          )}
         </>
       )}
     </div>

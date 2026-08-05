@@ -3,7 +3,7 @@ import axios from 'axios'
 const baseURL =
   import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? '/api' : 'https://sqotify-api.onrender.com')
-const api = axios.create({ baseURL })
+const api = axios.create({ baseURL, timeout: 25000 })
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('sq_token')
@@ -13,7 +13,13 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (res) => res.data,
-  (err) => {
+  async (err) => {
+    const { config } = err
+    if (config && !config.__retry && (!err.response || err.response.status >= 500)) {
+      config.__retry = 1
+      await new Promise((r) => setTimeout(r, 2000))
+      return api(config)
+    }
     const msg = err.response?.data?.error || 'Something went wrong'
     return Promise.reject(new Error(msg))
   }
