@@ -1,10 +1,15 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import api from '../api/client'
+import { useAuth } from './AuthContext'
 
 const PlayerContext = createContext(null)
 
 const RECENT_KEY = 'sq_recent'
 const FULL_KEY = 'sq_full'
+
+function recentKeyFor(user) {
+  return user && user.id ? `sq_recent_${user.id}` : RECENT_KEY
+}
 
 function safeGet(key) {
   try {
@@ -21,6 +26,7 @@ function safeSet(key, val) {
 }
 
 export function PlayerProvider({ children }) {
+  const { user } = useAuth()
   const audioRef = useRef(null)
   const queueRef = useRef([])
   const indexRef = useRef(-1)
@@ -46,15 +52,28 @@ export function PlayerProvider({ children }) {
   const [fullEnabled, setFullEnabled] = useState(fullEnabledRef.current)
   const [recent, setRecent] = useState(() => {
     try {
-      return JSON.parse(safeGet(RECENT_KEY) || '[]') || []
+      return JSON.parse(safeGet(recentKeyFor(user)) || '[]') || []
     } catch {
       return []
     }
   })
+  const lastKeyRef = useRef(null)
 
   useEffect(() => {
-    safeSet(RECENT_KEY, JSON.stringify(recent))
-  }, [recent])
+    const key = recentKeyFor(user)
+    try {
+      setRecent(JSON.parse(safeGet(key) || '[]') || [])
+    } catch {
+      setRecent([])
+    }
+    lastKeyRef.current = key
+  }, [user])
+
+  useEffect(() => {
+    const key = recentKeyFor(user)
+    if (lastKeyRef.current !== key) return
+    safeSet(key, JSON.stringify(recent))
+  }, [recent, user])
 
   function handleEndedIndex() {
     const q = queueRef.current
