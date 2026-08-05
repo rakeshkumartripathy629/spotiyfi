@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import api from '../api/client'
+import { libraryApi } from '../api/client'
 import { useAuth } from './AuthContext'
 
 const PlayerContext = createContext(null)
@@ -68,6 +69,17 @@ export function PlayerProvider({ children }) {
       setRecent([])
     }
     lastKeyRef.current = key
+    if (!user?.id) return
+    let alive = true
+    libraryApi
+      .history()
+      .then(({ tracks }) => {
+        if (alive && Array.isArray(tracks) && tracks.length) setRecent(tracks)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
   }, [user])
 
   useEffect(() => {
@@ -285,6 +297,7 @@ export function PlayerProvider({ children }) {
     setCurrent(track)
     setQueue(q)
     recordRecent(track)
+    if (user?.id) libraryApi.addHistory(track).catch(() => {})
     if (ytModeRef.current && ytPlayerRef.current) {
       try {
         ytPlayerRef.current.stopVideo()

@@ -6,6 +6,20 @@ import Playlist from '../models/Playlist.js'
 const router = Router()
 router.use(requireAuth)
 
+router.get('/history', async (req, res) => {
+  const user = await User.findById(req.user._id)
+  res.json({ tracks: user.history })
+})
+
+router.post('/history', async (req, res) => {
+  const track = req.body || {}
+  if (!track.id) return res.status(400).json({ error: 'Track data required' })
+  const user = await User.findById(req.user._id)
+  user.history = [track, ...user.history.filter((t) => t.id !== String(track.id))].slice(0, 50)
+  await user.save()
+  res.json({ tracks: user.history })
+})
+
 router.get('/favorites', async (req, res) => {
   const user = await User.findById(req.user._id)
   res.json({ tracks: user.favorites })

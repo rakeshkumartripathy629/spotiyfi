@@ -14,16 +14,26 @@ import Playlist from './pages/Playlist'
 import Liked from './pages/Liked'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import Landing from './pages/Landing'
+
+function Loading() {
+  return (
+    <div className="flex h-full items-center justify-center text-spotify-text">
+      Loading...
+    </div>
+  )
+}
+
+function Root() {
+  const { user, loading } = useAuth()
+  if (loading) return <Loading />
+  return user ? <Shell /> : <Landing />
+}
 
 function Shell() {
   const { user, loading } = useAuth()
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center text-spotify-text">
-        Loading...
-      </div>
-    )
-  }
+  if (loading) return <Loading />
+  if (!user) return <Navigate to="/login" replace />
   return (
     <div className="flex h-full flex-col bg-spotify-dark">
       <div className="flex min-h-0 flex-1">
@@ -54,6 +64,7 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/" element={<Root />} />
             <Route path="/*" element={<Shell />} />
           </Routes>
         </LibraryProvider>
