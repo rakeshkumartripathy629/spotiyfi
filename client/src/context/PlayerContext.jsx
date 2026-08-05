@@ -208,6 +208,9 @@ export function PlayerProvider({ children }) {
       try {
         ytPlayerRef.current.setVolume(Math.round(volumeRef.current * 100))
       } catch {}
+      try {
+        ytPlayerRef.current.playVideo()
+      } catch {}
     } catch {
       if (currentIdRef.current) {
         setFullStatus('preview')

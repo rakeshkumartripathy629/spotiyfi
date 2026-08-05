@@ -19,6 +19,20 @@ export default function Search() {
   const [searched, setSearched] = useState(false)
 
   useEffect(() => {
+    setInput(q)
+  }, [q])
+
+  useEffect(() => {
+    const v = input.trim()
+    if (v === q) return
+    const t = setTimeout(() => {
+      if (v) setParams({ q: v })
+      else setParams({})
+    }, 500)
+    return () => clearTimeout(t)
+  }, [input])
+
+  useEffect(() => {
     music.countries().then((c) => setCountries(c)).catch(() => {})
   }, [])
 
@@ -83,6 +97,11 @@ export default function Search() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Singer name or song — any language..."
+            type="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck="false"
             className="w-full bg-transparent text-white outline-none placeholder:text-spotify-text"
           />
           {input && (
