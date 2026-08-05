@@ -114,22 +114,33 @@ export async function resolveChartTrack(track) {
 const fullCache = new Map()
 const FULL_TTL = 6 * 60 * 60 * 1000
 
-const pipedCache = { ts: 0 }
-const PIPED_TTL = 60 * 60 * 1000
+const pipedInstances = [
+  'https://api.piped.private.coffee',
+  'https://pipedapi.adminforge.de',
+  'https://pipedapi.reallyaweso.me',
+  'https://pipedapi.kavin.rocks',
+]
 
-async function getPipedInstances() {
-  if (pipedCache.list && Date.now() - pipedCache.ts < PIPED_TTL) return pipedCache.list
-  let list = ['https://pipedapi.kavin.rocks', 'https://pipedapi.adminforge.de', 'https://api.piped.private.coffee', 'https://pipedapi.reallyaweso.me']
-  try {
-    const { data } = await axios.get('https://piped-instances.kavin.rocks/', { timeout: 10000 })
-    const up = (Array.isArray(data) ? data : []).filter((i) => i.api_url && i.health)
-    if (up.length) list = up.map((i) => i.api_url).slice(0, 8)
-  } catch {
-    // use fallback list
-  }
-  pipedCache.list = list
-  pipedCache.ts = Date.now()
-  return list
+function getPipedInstances() {
+  return pipedInstances
+}
+
+async function firstSuccess(promises) {
+  let pending = promises.length
+  return new Promise((resolve, reject) => {
+    if (!pending) return reject(new Error('no instances'))
+    for (const p of promises) {
+      Promise.resolve(p).then(
+        (v) => {
+          if (v) resolve(v)
+          else if (--pending === 0) reject(new Error('no result'))
+        },
+        () => {
+          if (--pending === 0) reject(new Error('no result'))
+        }
+      )
+    }
+  })
 }
 
 async function resolveViaPiped(query, maxInstances = 4) {
@@ -160,21 +171,22 @@ async function resolveViaPiped(query, maxInstances = 4) {
   return null
 }
 
-async function getYoutubeId(query, maxInstances = 4) {
-  const instances = await getPipedInstances()
-  for (const api of instances.slice(0, maxInstances)) {
-    try {
-      const { data } = await axios.get(`${api}/search`, {
-        params: { q: query, filter: 'music_songs' },
-        timeout: 15000,
+async function getYoutubeId(query) {
+  const instances = getPipedInstances()
+  try {
+    return await firstSuccess(
+      instances.map(async (api) => {
+        const { data } = await axios.get(`${api}/search`, {
+          params: { q: query, filter: 'music_songs' },
+          timeout: 9000,
+        })
+        const item = (data.items || []).find((i) => i.url?.includes('watch?v='))
+        return item ? String(item.url).split('v=')[1] : null
       })
-      const item = (data.items || []).find((i) => i.url?.includes('watch?v='))
-      if (item) return String(item.url).split('v=')[1]
-    } catch {
-      // try next instance
-    }
+    )
+  } catch {
+    return null
   }
-  return null
 }
 
 const PLAYER_CLIENTS = [
@@ -261,10 +273,10 @@ export async function resolveFullTrack(title, artist = '') {
   if (!process.env.RENDER) {
     const yt = await resolveViaYtDlp(title, artist).catch(() => ({}))
     if (yt.url) return store({ url: yt.url })
-  }
 
-  const piped = await resolveViaPiped(`${artist} ${title} official audio`).catch(() => null)
-  if (piped?.url) return store({ url: piped.url })
+    const piped = await resolveViaPiped(`${artist} ${title} official audio`).catch(() => null)
+    if (piped?.url) return store({ url: piped.url })
+  }
 
   const youtubeId = await getYoutubeId(`${artist} ${title} official audio`).catch(() => null)
   if (youtubeId) return store({ youtubeId })

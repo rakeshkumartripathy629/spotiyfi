@@ -123,23 +123,38 @@ export function PlayerProvider({ children }) {
     return ytApiPromiseRef.current
   }
 
+  function ensureYtPlayer(YT) {
+    if (ytPlayerRef.current) return
+    ytPlayerRef.current = new YT.Player('yt-embed', {
+      playerVars: { autoplay: 1, playsinline: 1, iv_load_policy: 3, rel: 0 },
+      events: {
+        onStateChange: (e) => {
+          if (e.data === YT.PlayerState.PLAYING) setIsPlaying(true)
+          else if (e.data === YT.PlayerState.PAUSED) setIsPlaying(false)
+          else if (e.data === YT.PlayerState.ENDED) {
+            playAtRef.current && playAtRef.current(handleEndedIndex(), true)
+          }
+        },
+      },
+    })
+  }
+
+  useEffect(() => {
+    let alive = true
+    loadYtApi()
+      .then((YT) => {
+        if (alive) ensureYtPlayer(YT)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
+
   async function playYoutube(videoId) {
     try {
       const YT = await loadYtApi()
-      if (!ytPlayerRef.current) {
-        ytPlayerRef.current = new YT.Player('yt-embed', {
-          playerVars: { autoplay: 1, playsinline: 1, iv_load_policy: 3, rel: 0 },
-          events: {
-            onStateChange: (e) => {
-              if (e.data === YT.PlayerState.PLAYING) setIsPlaying(true)
-              else if (e.data === YT.PlayerState.PAUSED) setIsPlaying(false)
-              else if (e.data === YT.PlayerState.ENDED) {
-                playAtRef.current && playAtRef.current(handleEndedIndex(), true)
-              }
-            },
-          },
-        })
-      }
+      ensureYtPlayer(YT)
       ytModeRef.current = true
       setFullStatus('full')
       setProgress(0)
