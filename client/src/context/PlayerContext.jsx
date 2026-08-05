@@ -125,7 +125,11 @@ export function PlayerProvider({ children }) {
 
   function ensureYtPlayer(YT) {
     if (ytPlayerRef.current) return
-    ytPlayerRef.current = new YT.Player('yt-embed', {
+    const el = document.createElement('div')
+    el.style.cssText =
+      'position:fixed;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;overflow:hidden;'
+    document.body.appendChild(el)
+    const player = new YT.Player(el, {
       playerVars: { autoplay: 1, playsinline: 1, iv_load_policy: 3, rel: 0 },
       events: {
         onStateChange: (e) => {
@@ -137,6 +141,16 @@ export function PlayerProvider({ children }) {
         },
       },
     })
+    const onReady = () => {
+      const iframe = player.getIframe?.()
+      if (iframe) {
+        iframe.style.cssText =
+          'position:fixed;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;border:0;'
+      }
+    }
+    if (player.getIframe?.()) onReady()
+    else player.addEventListener?.('onReady', onReady)
+    ytPlayerRef.current = player
   }
 
   useEffect(() => {
@@ -148,6 +162,15 @@ export function PlayerProvider({ children }) {
       .catch(() => {})
     return () => {
       alive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      try {
+        ytPlayerRef.current?.destroy()
+      } catch {}
+      ytPlayerRef.current = null
     }
   }, [])
 
@@ -374,11 +397,6 @@ export function PlayerProvider({ children }) {
       }}
     >
       {children}
-      <div
-        id="yt-embed"
-        className="pointer-events-none fixed h-0 w-0 opacity-0"
-        aria-hidden="true"
-      />
     </PlayerContext.Provider>
   )
 }
