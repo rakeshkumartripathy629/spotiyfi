@@ -29,39 +29,37 @@ export default function Search() {
     setExpanded(false)
     setExpanding(false)
     music
-      .search(q, country, 200)
+      .search(q, country, 50)
       .then((res) => {
-        if (!alive) return
-        setTracks(res.tracks)
-        if (res.tracks.length >= 195) {
-          setExpanding(true)
-          return music.artistSongs(q).then((all) => {
-            if (!alive) return
-            const map = new Map()
-            res.tracks.forEach((t) => map.set(t.id, t))
-            all.tracks.forEach((t) => {
-              if (!map.has(t.id)) map.set(t.id, t)
-            })
-            setTracks(
-              [...map.values()].sort(
-                (a, b) => new Date(b.releaseDate || 0) - new Date(a.releaseDate || 0)
-              )
-            )
-            setExpanded(true)
-          })
-        }
+        if (alive) setTracks(res.tracks)
       })
       .catch(() => alive && setTracks([]))
-      .finally(() => {
-        if (alive) {
-          setLoading(false)
-          setExpanding(false)
-        }
-      })
+      .finally(() => alive && setLoading(false))
     return () => {
       alive = false
     }
   }, [q, country])
+
+  const loadAll = () => {
+    setExpanding(true)
+    music
+      .artistSongs(q)
+      .then((res) => {
+        setTracks((prev) => {
+          const map = new Map()
+          prev.forEach((t) => map.set(t.id, t))
+          res.tracks.forEach((t) => {
+            if (!map.has(t.id)) map.set(t.id, t)
+          })
+          return [...map.values()].sort(
+            (a, b) => new Date(b.releaseDate || 0) - new Date(a.releaseDate || 0)
+          )
+        })
+        setExpanded(true)
+      })
+      .catch(() => {})
+      .finally(() => setExpanding(false))
+  }
 
   const submit = (e) => {
     e.preventDefault()
@@ -129,6 +127,14 @@ export default function Search() {
               <span className="flex items-center gap-1 text-xs font-semibold text-amber-400">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading all songs...
               </span>
+            )}
+            {!expanded && !expanding && (
+              <button
+                onClick={loadAll}
+                className="rounded-full bg-spotify-green px-3 py-1 text-xs font-bold text-black hover:scale-105"
+              >
+                Load all songs
+              </button>
             )}
           </div>
           <div className="overflow-hidden rounded-md bg-spotify-card/50">

@@ -113,7 +113,17 @@ export async function resolveChartTrack(track) {
 const fullCache = new Map()
 const FULL_TTL = 6 * 60 * 60 * 1000
 
-const PLAYER_CLIENTS = ['android', 'tv', 'web_embedded', null]
+const PLAYER_CLIENTS = [
+  'android',
+  'android_vr',
+  'android_tv',
+  'tv',
+  'web_embedded',
+  'web_music',
+  'ios',
+  'mweb',
+  null,
+]
 
 export async function resolveFullTrack(title, artist = '') {
   const key = `${artist} - ${title}`
@@ -121,6 +131,7 @@ export async function resolveFullTrack(title, artist = '') {
   if (hit && Date.now() - hit.ts < FULL_TTL) return hit.url
 
   const query = `ytsearch1:${artist} ${title} official audio`.trim()
+  let lastError = ''
   for (const client of PLAYER_CLIENTS) {
     try {
       const opts = {
@@ -135,11 +146,12 @@ export async function resolveFullTrack(title, artist = '') {
         fullCache.set(key, { url: str, ts: Date.now() })
         return str
       }
-    } catch {
-      // try next player client
+      lastError = `No URL for client ${client || 'default'}`
+    } catch (err) {
+      lastError = `client ${client || 'default'}: ${String(err.message || err).slice(0, 200)}`
     }
   }
-  return null
+  return { error: lastError }
 }
 
 export async function getRecent(limit = 20) {

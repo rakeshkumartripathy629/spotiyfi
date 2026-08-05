@@ -101,9 +101,13 @@ router.post('/full', async (req, res) => {
   const { title, artist } = req.body || {}
   if (!title) return res.status(400).json({ error: 'title required' })
   try {
-    const url = await resolveFullTrack(title, artist || '')
-    if (!url) return res.status(404).json({ error: 'Could not resolve full track' })
-    res.json({ url })
+    const result = await resolveFullTrack(title, artist || '')
+    if (!result) return res.status(404).json({ error: 'Could not resolve full track' })
+    if (result.error) {
+      console.warn('[FULL] failed:', result.error)
+      return res.status(404).json({ error: 'Could not resolve full track', detail: result.error })
+    }
+    res.json({ url: result })
   } catch (err) {
     res.status(502).json({ error: err.message })
   }
