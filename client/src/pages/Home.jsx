@@ -1,11 +1,24 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, CloudRain, Heart, PartyPopper, Dumbbell, Target, Moon, Smile, Leaf, Car, Radio } from 'lucide-react'
 import { music } from '../api/client'
 import TrackRow from '../components/TrackRow'
 import Spinner from '../components/Spinner'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/PlayerContext'
+
+const MOOD_ICONS = {
+  Sad: CloudRain,
+  Romantic: Heart,
+  Party: PartyPopper,
+  Workout: Dumbbell,
+  Focus: Target,
+  Sleep: Moon,
+  'Feel Good': Smile,
+  Chill: Leaf,
+  'Road Trip': Car,
+  Retro: Radio,
+}
 
 const TRENDING = [
   { title: 'Trending in India', country: 'IN' },
@@ -93,18 +106,26 @@ export default function Home() {
             <section className="mb-8">
               <h2 className="mb-3 text-xl font-bold">Moods & genres</h2>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                {moods.map((m) => (
-                  <Link
-                    key={m.name}
-                    to={`/search?q=${encodeURIComponent(m.query)}`}
-                    className={`relative flex h-28 items-end rounded-lg bg-gradient-to-br ${m.color} p-3 transition hover:scale-[1.03]`}
-                  >
-                    <div>
-                      <p className="text-lg font-bold">{m.name}</p>
-                      <p className="text-xs text-white/70">{m.tracks.length} songs</p>
-                    </div>
-                  </Link>
-                ))}
+                {moods.map((m) => {
+                  const MoodIcon = MOOD_ICONS[m.name]
+                  return (
+                    <Link
+                      key={m.name}
+                      to={`/search?q=${encodeURIComponent(m.query)}`}
+                      className={`relative flex h-28 items-end rounded-lg bg-gradient-to-br ${m.color} p-3 transition hover:scale-[1.03]`}
+                    >
+                      {MoodIcon && (
+                        <span className="absolute right-3 top-3 text-white/70">
+                          <MoodIcon className="h-9 w-9" strokeWidth={1.5} />
+                        </span>
+                      )}
+                      <div>
+                        <p className="text-lg font-bold">{m.name}</p>
+                        <p className="text-xs text-white/70">{m.tracks.length} songs</p>
+                      </div>
+                    </Link>
+                  )
+                })}
               </div>
             </section>
           )}
