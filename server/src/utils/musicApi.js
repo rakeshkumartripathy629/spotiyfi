@@ -113,25 +113,31 @@ export async function resolveChartTrack(track) {
 const fullCache = new Map()
 const FULL_TTL = 6 * 60 * 60 * 1000
 
+const PLAYER_CLIENTS = ['android', 'tv', 'web_embedded', null]
+
 export async function resolveFullTrack(title, artist = '') {
   const key = `${artist} - ${title}`
   const hit = fullCache.get(key)
   if (hit && Date.now() - hit.ts < FULL_TTL) return hit.url
 
   const query = `ytsearch1:${artist} ${title} official audio`.trim()
-  try {
-    const url = await youtubedl(query, {
-      format: 'bestaudio[ext=m4a]/bestaudio',
-      getUrl: true,
-      noWarnings: true,
-    })
-    const str = String(url).trim()
-    if (str.startsWith('http')) {
-      fullCache.set(key, { url: str, ts: Date.now() })
-      return str
+  for (const client of PLAYER_CLIENTS) {
+    try {
+      const opts = {
+        format: 'bestaudio[ext=m4a]/bestaudio/best',
+        getUrl: true,
+        noWarnings: true,
+      }
+      if (client) opts.extractorArgs = `youtube:player_client=${client}`
+      const url = await youtubedl(query, opts)
+      const str = String(url).trim()
+      if (str.startsWith('http')) {
+        fullCache.set(key, { url: str, ts: Date.now() })
+        return str
+      }
+    } catch {
+      // try next player client
     }
-  } catch {
-    // fall through
   }
   return null
 }

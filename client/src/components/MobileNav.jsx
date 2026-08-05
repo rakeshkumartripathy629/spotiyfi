@@ -1,7 +1,9 @@
 import { NavLink } from 'react-router-dom'
-import { Home, Search, Compass, Heart } from 'lucide-react'
+import { Home, Search, Compass, Heart, LogIn, LogOut } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
 export default function MobileNav() {
+  const { user, logout } = useAuth()
   const item = ({ isActive }) =>
     `flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[11px] font-semibold ${
       isActive ? 'text-spotify-green' : 'text-spotify-text'
@@ -21,6 +23,22 @@ export default function MobileNav() {
       <NavLink to="/liked" className={item}>
         <Heart className="h-5 w-5" /> Liked
       </NavLink>
+      {user ? (
+        <button
+          onClick={logout}
+          className={`${item(null)}`}
+          title="Log out"
+        >
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-spotify-green text-[10px] font-bold text-black">
+            {user.name[0]?.toUpperCase()}
+          </span>
+          Logout
+        </button>
+      ) : (
+        <NavLink to="/login" className={item}>
+          <LogIn className="h-5 w-5" /> Login
+        </NavLink>
+      )}
     </nav>
   )
 }
