@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Play, Heart, Plus, Check, Trash2 } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
 import { useAuth } from "../context/AuthContext";
@@ -72,7 +73,17 @@ export default function TrackRow({
           <p className="truncate text-sm font-semibold text-white">
             {track.title}
           </p>
-          <p className="truncate text-xs text-spotify-text">{track.artist}</p>
+          {track.artistId ? (
+            <Link
+              to={`/artist/${track.artistId}`}
+              onClick={(e) => e.stopPropagation()}
+              className="block w-fit max-w-full truncate text-xs text-spotify-text hover:text-white hover:underline"
+            >
+              {track.artist}
+            </Link>
+          ) : (
+            <p className="truncate text-xs text-spotify-text">{track.artist}</p>
+          )}
         </div>
       </div>
 

@@ -30,6 +30,7 @@ function normalizeTrack(t) {
     duration: t.trackTimeMillis || 0,
     genre: t.primaryGenreName || null,
     collectionId: String(t.collectionId || ''),
+    artistId: String(t.artistId || ''),
     releaseDate: t.releaseDate || null,
   }
 }
@@ -355,6 +356,109 @@ export async function getArtistSongs(q, cap = 400) {
     return [...map.values()]
       .sort((a, b) => new Date(b.releaseDate || 0) - new Date(a.releaseDate || 0))
       .slice(0, cap)
+  })
+}
+
+const LRCLIB_GET = 'https://lrclib.net/api/get'
+const LRCLIB_SEARCH = 'https://lrclib.net/api/search'
+
+export async function getLyrics(title, artist = '') {
+  const key = `lyrics:${artist}|${title}`
+  return cached(key, async () => {
+    try {
+      const { data } = await axios.get(LRCLIB_GET, {
+        params: { track_name: title, artist_name: artist },
+        timeout: 10000,
+      })
+      if (data && (data.syncedLyrics || data.plainLyrics)) {
+        return {
+          synced: data.syncedLyrics || null,
+          plain: data.plainLyrics || null,
+          title: data.trackName || title,
+          artist: data.artistName || artist,
+        }
+      }
+    } catch {
+      // fall through to search
+    }
+    try {
+      const { data: list } = await axios.get(LRCLIB_SEARCH, {
+        params: { q: `${artist} ${title}`.trim() },
+        timeout: 10000,
+      })
+      const hit = (list || []).find((d) => d.syncedLyrics || d.plainLyrics)
+      if (hit) {
+        return {
+          synced: hit.syncedLyrics || null,
+          plain: hit.plainLyrics || null,
+          title: hit.trackName || title,
+          artist: hit.artistName || artist,
+        }
+      }
+    } catch {
+      // nothing found
+    }
+    return null
+  })
+}
+
+export async function getArtist(artistId) {
+  const key = `artistPage:${artistId}`
+  return cached(key, async () => {
+    const [songsRes, albumsRes] = await Promise.all([
+      axios.get(ITUNES_LOOKUP, {
+        params: { id: artistId, entity: 'song', limit: 200 },
+        timeout: 12000,
+      }),
+      axios.get(ITUNES_LOOKUP, {
+        params: { id: artistId, entity: 'album', limit: 50 },
+        timeout: 12000,
+      }),
+    ])
+    const songRows = songsRes.data.results || []
+    const albumRows = (albumsRes.data.results || []).filter((r) => r.wrapperType === 'collection')
+    const artistRow = songRows.find((r) => r.wrapperType === 'artist')
+    const tracks = songRows
+      .filter((r) => r.wrapperType === 'track' && r.previewUrl)
+      .map(normalizeTrack)
+    const albums = albumRows.map((a) => ({
+      collectionId: String(a.collectionId),
+      name: a.collectionName,
+      artist: a.artistName || '',
+      artwork: (a.artworkUrl100 || '').replace('100x100bb', '300x300bb'),
+      releaseDate: a.releaseDate || null,
+      trackCount: a.trackCount || 0,
+    }))
+    return {
+      id: String(artistId),
+      name: artistRow?.artistName || tracks[0]?.artist || albums[0]?.artist || 'Artist',
+      artwork: (artistRow?.artworkUrl100 || albums[0]?.artwork || tracks[0]?.artwork || '').replace(
+        '100x100bb',
+        '300x300bb'
+      ),
+      genre: artistRow?.primaryGenreName || tracks[0]?.genre || '',
+      topTracks: tracks.slice(0, 50),
+      albums,
+    }
+  })
+}
+
+export async function getSimilar(title, artist = '') {
+  const key = `similar:${artist}|${title}`
+  return cached(key, async () => {
+    const map = new Map()
+    const results = await Promise.allSettled([
+      artist ? searchMusic(artist, 'US', 50) : Promise.resolve([]),
+      searchMusic(`${artist} ${title}`.trim(), 'IN', 25),
+    ])
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue
+      for (const t of r.value) {
+        if (String(t.title).toLowerCase() === String(title).toLowerCase()) continue
+        if (!map.has(t.id)) map.set(t.id, t)
+      }
+    }
+    return [...map.values()].slice(0, 30)
   })
 }
 

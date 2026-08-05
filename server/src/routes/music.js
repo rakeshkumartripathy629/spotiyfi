@@ -9,6 +9,9 @@ import {
   getArtistSongs,
   getMoods,
   searchJamendo,
+  getLyrics,
+  getArtist,
+  getSimilar,
 } from '../utils/musicApi.js'
 
 const router = Router()
@@ -107,6 +110,39 @@ router.get('/jamendo', async (req, res) => {
     res.json(data)
   } catch (err) {
     res.status(502).json({ error: 'Failed to load Jamendo', detail: err.message })
+  }
+})
+
+router.get('/artist/:id', async (req, res) => {
+  try {
+    const artist = await getArtist(req.params.id)
+    res.json(artist)
+  } catch (err) {
+    res.status(502).json({ error: 'Failed to load artist', detail: err.message })
+  }
+})
+
+router.get('/lyrics', async (req, res) => {
+  const title = (req.query.title || '').trim()
+  const artist = (req.query.artist || '').trim()
+  if (!title) return res.status(400).json({ error: 'Missing ?title=' })
+  try {
+    const lyrics = await getLyrics(title, artist)
+    res.json({ lyrics })
+  } catch (err) {
+    res.status(502).json({ error: 'Failed to load lyrics', detail: err.message })
+  }
+})
+
+router.get('/similar', async (req, res) => {
+  const title = (req.query.title || '').trim()
+  const artist = (req.query.artist || '').trim()
+  if (!title) return res.status(400).json({ error: 'Missing ?title=' })
+  try {
+    const tracks = await getSimilar(title, artist)
+    res.json({ tracks })
+  } catch (err) {
+    res.status(502).json({ error: 'Failed to load similar tracks', detail: err.message })
   }
 })
 

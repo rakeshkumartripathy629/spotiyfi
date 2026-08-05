@@ -42,6 +42,7 @@ export function PlayerProvider({ children }) {
 
   const [current, setCurrent] = useState(null)
   const [queue, setQueue] = useState([])
+  const [queueIndex, setQueueIndex] = useState(-1)
   const [isPlaying, setIsPlaying] = useState(false)
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
@@ -278,6 +279,7 @@ export function PlayerProvider({ children }) {
     if (!q.length) return
     const idx = (((i % q.length) + q.length) % q.length)
     indexRef.current = idx
+    setQueueIndex(idx)
     const track = q[idx]
     currentIdRef.current = String(track.id)
     setCurrent(track)
@@ -413,11 +415,38 @@ export function PlayerProvider({ children }) {
     setQueue(nq)
   }
 
+  function removeFromQueue(index) {
+    const q = queueRef.current
+    if (index < 0 || index >= q.length || index === indexRef.current) return
+    const cur = indexRef.current
+    const nq = q.filter((_, i) => i !== index)
+    queueRef.current = nq
+    setQueue(nq)
+    const newCur = index < cur ? cur - 1 : cur
+    indexRef.current = newCur
+    setQueueIndex(newCur)
+  }
+
+  function playNext(index) {
+    const q = queueRef.current
+    if (index < 0 || index >= q.length || index === indexRef.current) return
+    const track = q[index]
+    const cur = indexRef.current
+    const nq = q.filter((_, i) => i !== index)
+    const newCur = index < cur ? cur - 1 : cur
+    indexRef.current = newCur
+    setQueueIndex(newCur)
+    nq.splice(newCur + 1, 0, track)
+    queueRef.current = nq
+    setQueue(nq)
+  }
+
   return (
     <PlayerContext.Provider
       value={{
         current,
         queue,
+        queueIndex,
         isPlaying,
         progress,
         duration,
@@ -438,6 +467,8 @@ export function PlayerProvider({ children }) {
         toggleRepeat,
         toggleFull,
         addToQueue,
+        removeFromQueue,
+        playNext,
       }}
     >
       {children}

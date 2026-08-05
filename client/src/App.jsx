@@ -9,6 +9,7 @@ import Home from './pages/Home'
 import Search from './pages/Search'
 import Charts from './pages/Charts'
 import Album from './pages/Album'
+import Artist from './pages/Artist'
 import Playlist from './pages/Playlist'
 import Liked from './pages/Liked'
 import Login from './pages/Login'
@@ -33,6 +34,7 @@ function Shell() {
             <Route path="/search" element={<Search />} />
             <Route path="/charts" element={<Charts />} />
             <Route path="/album/:id" element={<Album />} />
+            <Route path="/artist/:id" element={<Artist />} />
             <Route path="/playlist/:id" element={<Playlist />} />
             <Route path="/liked" element={user ? <Liked /> : <Navigate to="/login" />} />
           </Routes>

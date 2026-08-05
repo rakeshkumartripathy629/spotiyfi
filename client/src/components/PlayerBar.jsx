@@ -13,9 +13,13 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  ListMusic,
+  Mic2,
 } from 'lucide-react'
 import { usePlayer } from '../context/PlayerContext'
 import { formatTime, fallbackArtwork } from '../utils/format'
+import LyricsPanel from './LyricsPanel'
+import QueueDrawer from './QueueDrawer'
 
 function FullBadge({ fullStatus }) {
   if (fullStatus === 'full')
@@ -58,6 +62,8 @@ export default function PlayerBar() {
     toggleFull,
   } = usePlayer()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [lyricsOpen, setLyricsOpen] = useState(false)
+  const [queueOpen, setQueueOpen] = useState(false)
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? 'hidden' : ''
@@ -160,6 +166,21 @@ export default function PlayerBar() {
 
           <div className="flex items-center justify-end gap-2">
             <button
+              onClick={() => setLyricsOpen(true)}
+              disabled={!current}
+              className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold text-spotify-text transition hover:text-white disabled:opacity-40"
+              title="Lyrics"
+            >
+              <Mic2 className="h-3.5 w-3.5" /> Lyrics
+            </button>
+            <button
+              onClick={() => setQueueOpen(true)}
+              className="rounded-full p-1.5 text-spotify-text transition hover:text-white"
+              title="Queue"
+            >
+              <ListMusic className="h-5 w-5" />
+            </button>
+            <button
               onClick={toggleFull}
               title={fullEnabled ? 'Full tracks ON — resolve full song' : 'Full tracks OFF — 30s previews'}
               className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold transition ${
@@ -238,6 +259,13 @@ export default function PlayerBar() {
           <SkipForward className="h-6 w-6 fill-current" />
         </button>
         <button
+          onClick={() => setQueueOpen(true)}
+          className="shrink-0 text-spotify-text"
+          title="Queue"
+        >
+          <ListMusic className="h-6 w-6" />
+        </button>
+        <button
           onClick={() => setMobileOpen(true)}
           className="shrink-0 text-spotify-text"
           title="Open player"
@@ -279,7 +307,25 @@ export default function PlayerBar() {
                     <h1 className="truncate text-2xl font-bold text-white">{current.title}</h1>
                     {badge}
                   </div>
-                  <p className="truncate text-base text-spotify-text">{current.artist}</p>
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <p className="truncate text-base text-spotify-text">{current.artist}</p>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        onClick={() => setLyricsOpen(true)}
+                        className="flex items-center gap-1 rounded-full bg-spotify-hover px-3 py-1.5 text-xs font-bold text-white"
+                        title="Lyrics"
+                      >
+                        <Mic2 className="h-4 w-4" /> Lyrics
+                      </button>
+                      <button
+                        onClick={() => setQueueOpen(true)}
+                        className="rounded-full bg-spotify-hover p-1.5 text-white"
+                        title="Queue"
+                      >
+                        <ListMusic className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -366,6 +412,9 @@ export default function PlayerBar() {
           )}
         </div>
       )}
+
+      <LyricsPanel open={lyricsOpen} onClose={() => setLyricsOpen(false)} />
+      <QueueDrawer open={queueOpen} onClose={() => setQueueOpen(false)} />
     </>
   )
 }

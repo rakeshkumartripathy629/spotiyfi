@@ -46,6 +46,9 @@ export const music = {
   artistSongs: (q) => api.get('/music/artist-songs', { params: { q } }),
   jamendo: (q, limit = 24) => api.get('/music/jamendo', { params: { q, limit } }),
   full: (title, artist) => api.post('/music/full', { title, artist }),
+  artist: (id) => api.get(`/music/artist/${id}`),
+  lyrics: (title, artist) => api.get('/music/lyrics', { params: { title, artist } }),
+  similar: (title, artist) => api.get('/music/similar', { params: { title, artist } }),
 }
 
 export const authApi = {
