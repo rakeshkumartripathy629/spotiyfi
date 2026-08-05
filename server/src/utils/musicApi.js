@@ -114,6 +114,69 @@ export async function resolveChartTrack(track) {
 const fullCache = new Map()
 const FULL_TTL = 6 * 60 * 60 * 1000
 
+const pipedCache = { ts: 0 }
+const PIPED_TTL = 60 * 60 * 1000
+
+async function getPipedInstances() {
+  if (pipedCache.list && Date.now() - pipedCache.ts < PIPED_TTL) return pipedCache.list
+  let list = ['https://pipedapi.kavin.rocks', 'https://pipedapi.adminforge.de', 'https://api.piped.private.coffee', 'https://pipedapi.reallyaweso.me']
+  try {
+    const { data } = await axios.get('https://piped-instances.kavin.rocks/', { timeout: 10000 })
+    const up = (Array.isArray(data) ? data : []).filter((i) => i.api_url && i.health)
+    if (up.length) list = up.map((i) => i.api_url).slice(0, 8)
+  } catch {
+    // use fallback list
+  }
+  pipedCache.list = list
+  pipedCache.ts = Date.now()
+  return list
+}
+
+async function resolveViaPiped(query, maxInstances = 4) {
+  const instances = await getPipedInstances()
+  for (const api of instances.slice(0, maxInstances)) {
+    try {
+      const { data } = await axios.get(`${api}/search`, {
+        params: { q: query, filter: 'music_songs' },
+        timeout: 15000,
+      })
+      const item = (data.items || []).find((i) => i.url?.includes('watch?v='))
+      if (!item) continue
+      const videoId = String(item.url).split('v=')[1]
+      const { data: s } = await axios.get(`${api}/streams/${videoId}`, { timeout: 15000 })
+      const audios = (s.audioStreams || [])
+        .filter(
+          (a) =>
+            (a.mimeType || '').includes('audio') &&
+            !String(a.url).includes('.m3u8') &&
+            String(a.url).startsWith('http')
+        )
+        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))
+      if (audios.length) return { url: audios[0].url }
+    } catch {
+      // try next instance
+    }
+  }
+  return null
+}
+
+async function getYoutubeId(query, maxInstances = 4) {
+  const instances = await getPipedInstances()
+  for (const api of instances.slice(0, maxInstances)) {
+    try {
+      const { data } = await axios.get(`${api}/search`, {
+        params: { q: query, filter: 'music_songs' },
+        timeout: 15000,
+      })
+      const item = (data.items || []).find((i) => i.url?.includes('watch?v='))
+      if (item) return String(item.url).split('v=')[1]
+    } catch {
+      // try next instance
+    }
+  }
+  return null
+}
+
 const PLAYER_CLIENTS = [
   'android',
   'android_vr',
@@ -125,6 +188,28 @@ const PLAYER_CLIENTS = [
   'mweb',
   null,
 ]
+
+async function resolveViaYtDlp(title, artist) {
+  const query = `ytsearch1:${artist} ${title} official audio`.trim()
+  let lastError = ''
+  for (const client of PLAYER_CLIENTS) {
+    try {
+      const opts = {
+        format: 'bestaudio[ext=m4a]/bestaudio/best',
+        getUrl: true,
+        noWarnings: true,
+      }
+      if (client) opts.extractorArgs = `youtube:player_client=${client}`
+      const url = await youtubedl(query, opts)
+      const str = String(url).trim()
+      if (str.startsWith('http')) return { url: str }
+      lastError = `No URL for client ${client || 'default'}`
+    } catch (err) {
+      lastError = `client ${client || 'default'}: ${String(err.message || err).slice(0, 200)}`
+    }
+  }
+  return { error: lastError }
+}
 
 export async function searchJamendo(q, limit = 24) {
   const clientId = process.env.JAMENDO_CLIENT_ID
@@ -161,37 +246,30 @@ export async function searchJamendo(q, limit = 24) {
 export async function resolveFullTrack(title, artist = '') {
   const key = `${artist} - ${title}`
   const hit = fullCache.get(key)
-  if (hit && Date.now() - hit.ts < FULL_TTL) return hit.url
+  if (hit && Date.now() - hit.ts < FULL_TTL) return hit.data
+
+  const store = (data) => {
+    fullCache.set(key, { data, ts: Date.now() })
+    return data
+  }
 
   const jamendo = await searchJamendo(`${artist} ${title}`, 5).catch(() => ({ enabled: false, tracks: [] }))
   if (jamendo.enabled && jamendo.tracks.length) {
-    const url = jamendo.tracks[0].previewUrl
-    fullCache.set(key, { url, ts: Date.now() })
-    return url
+    return store({ url: jamendo.tracks[0].previewUrl })
   }
 
-  const query = `ytsearch1:${artist} ${title} official audio`.trim()
-  let lastError = ''
-  for (const client of PLAYER_CLIENTS) {
-    try {
-      const opts = {
-        format: 'bestaudio[ext=m4a]/bestaudio/best',
-        getUrl: true,
-        noWarnings: true,
-      }
-      if (client) opts.extractorArgs = `youtube:player_client=${client}`
-      const url = await youtubedl(query, opts)
-      const str = String(url).trim()
-      if (str.startsWith('http')) {
-        fullCache.set(key, { url: str, ts: Date.now() })
-        return str
-      }
-      lastError = `No URL for client ${client || 'default'}`
-    } catch (err) {
-      lastError = `client ${client || 'default'}: ${String(err.message || err).slice(0, 200)}`
-    }
+  if (!process.env.RENDER) {
+    const yt = await resolveViaYtDlp(title, artist).catch(() => ({}))
+    if (yt.url) return store({ url: yt.url })
   }
-  return { error: lastError }
+
+  const piped = await resolveViaPiped(`${artist} ${title} official audio`).catch(() => null)
+  if (piped?.url) return store({ url: piped.url })
+
+  const youtubeId = await getYoutubeId(`${artist} ${title} official audio`).catch(() => null)
+  if (youtubeId) return store({ youtubeId })
+
+  return { error: 'No source available (Jamendo, YouTube, Piped all failed)' }
 }
 
 export async function getRecent(limit = 20) {
