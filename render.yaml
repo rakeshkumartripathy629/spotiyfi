@@ -10,7 +10,8 @@ services:
       - key: NODE_VERSION
         value: 22
       - key: MONGO_URI
-        sync: false
+        sync: true
+        value: "mongodb+srv://user:Arak%404131@cluster0.6z5wylr.mongodb.net/bandhansutra?retryWrites=true&w=majority"
       - key: JWT_SECRET
         sync: false
       - key: CLIENT_URL
