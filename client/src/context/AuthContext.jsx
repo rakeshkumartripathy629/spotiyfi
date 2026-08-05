@@ -8,29 +8,42 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('sq_token')
+    let token = null
+    try {
+      token = localStorage.getItem('sq_token')
+    } catch {}
     if (!token) return setLoading(false)
     authApi
       .me()
       .then(({ user }) => setUser(user))
-      .catch(() => localStorage.removeItem('sq_token'))
+      .catch(() => {
+        try {
+          localStorage.removeItem('sq_token')
+        } catch {}
+      })
       .finally(() => setLoading(false))
   }, [])
 
   const login = async (data) => {
     const res = await authApi.login(data)
-    localStorage.setItem('sq_token', res.token)
+    try {
+      localStorage.setItem('sq_token', res.token)
+    } catch {}
     setUser(res.user)
   }
 
   const register = async (data) => {
     const res = await authApi.register(data)
-    localStorage.setItem('sq_token', res.token)
+    try {
+      localStorage.setItem('sq_token', res.token)
+    } catch {}
     setUser(res.user)
   }
 
   const logout = () => {
-    localStorage.removeItem('sq_token')
+    try {
+      localStorage.removeItem('sq_token')
+    } catch {}
     setUser(null)
   }
 

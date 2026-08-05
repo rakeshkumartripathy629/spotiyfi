@@ -6,6 +6,20 @@ const PlayerContext = createContext(null)
 const RECENT_KEY = 'sq_recent'
 const FULL_KEY = 'sq_full'
 
+function safeGet(key) {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function safeSet(key, val) {
+  try {
+    localStorage.setItem(key, val)
+  } catch {}
+}
+
 export function PlayerProvider({ children }) {
   const audioRef = useRef(null)
   const queueRef = useRef([])
@@ -13,7 +27,7 @@ export function PlayerProvider({ children }) {
   const repeatRef = useRef('off')
   const shuffleRef = useRef(false)
   const currentIdRef = useRef(null)
-  const fullEnabledRef = useRef(localStorage.getItem(FULL_KEY) !== '0')
+  const fullEnabledRef = useRef(safeGet(FULL_KEY) !== '0')
   const playAtRef = useRef(null)
   const volumeRef = useRef(0.8)
   const ytPlayerRef = useRef(null)
@@ -30,12 +44,16 @@ export function PlayerProvider({ children }) {
   const [repeat, setRepeat] = useState('off')
   const [fullStatus, setFullStatus] = useState('preview')
   const [fullEnabled, setFullEnabled] = useState(fullEnabledRef.current)
-  const [recent, setRecent] = useState(() =>
-    JSON.parse(localStorage.getItem(RECENT_KEY) || '[]')
-  )
+  const [recent, setRecent] = useState(() => {
+    try {
+      return JSON.parse(safeGet(RECENT_KEY) || '[]') || []
+    } catch {
+      return []
+    }
+  })
 
   useEffect(() => {
-    localStorage.setItem(RECENT_KEY, JSON.stringify(recent))
+    safeSet(RECENT_KEY, JSON.stringify(recent))
   }, [recent])
 
   function handleEndedIndex() {
@@ -119,6 +137,9 @@ export function PlayerProvider({ children }) {
       const tag = document.createElement('script')
       tag.src = 'https://www.youtube.com/iframe_api'
       document.head.appendChild(tag)
+      setTimeout(() => {
+        if (window.YT?.Player) resolve(window.YT)
+      }, 12000)
     })
     return ytApiPromiseRef.current
   }
@@ -230,6 +251,7 @@ export function PlayerProvider({ children }) {
   }
 
   function playAt(i, auto) {
+    if (i == null) return
     const q = queueRef.current
     if (!q.length) return
     const idx = (((i % q.length) + q.length) % q.length)
@@ -357,7 +379,7 @@ export function PlayerProvider({ children }) {
   function toggleFull() {
     const next = !fullEnabledRef.current
     fullEnabledRef.current = next
-    localStorage.setItem(FULL_KEY, next ? '1' : '0')
+    safeSet(FULL_KEY, next ? '1' : '0')
     setFullEnabled(next)
     if (!next) setFullStatus('preview')
   }

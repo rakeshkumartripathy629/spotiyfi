@@ -7,8 +7,10 @@ const baseURL = rawBase.endsWith('/api') ? rawBase : rawBase.replace(/\/$/, '') 
 const api = axios.create({ baseURL, timeout: 25000 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('sq_token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  try {
+    const token = localStorage.getItem('sq_token')
+    if (token) config.headers.Authorization = `Bearer ${token}`
+  } catch {}
   return config
 })
 
