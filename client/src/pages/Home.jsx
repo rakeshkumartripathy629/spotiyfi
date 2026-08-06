@@ -160,7 +160,7 @@ export default function Home() {
                 </button>
               </div>
               <div className="flex snap-x gap-3 overflow-x-auto pb-2">
-                {recent.slice(0, 12).map((t) => (
+                {recent.slice(0, 10).map((t) => (
                   <button
                     key={t.id}
                     onClick={() => playTracks(recent, recent.findIndex((r) => r.id === t.id))}
@@ -180,6 +180,15 @@ export default function Home() {
                     <p className="truncate text-xs text-spotify-text">{t.artist}</p>
                   </button>
                 ))}
+                {recent.length > 10 && (
+                  <Link
+                    to="/recent"
+                    className="flex w-32 shrink-0 snap-start flex-col items-center justify-center gap-2 rounded-lg border border-spotify-hover bg-spotify-card/50 text-center transition hover:border-spotify-green hover:text-spotify-green"
+                  >
+                    <span className="text-2xl font-bold">→</span>
+                    <span className="text-sm font-semibold">See all</span>
+                  </Link>
+                )}
               </div>
             </section>
           )}

@@ -14,6 +14,7 @@ import Artist from './pages/Artist'
 import Playlist from './pages/Playlist'
 import Liked from './pages/Liked'
 import SongLink from './pages/SongLink'
+import Recent from './pages/Recent'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Landing from './pages/Landing'
@@ -50,6 +51,7 @@ function Shell() {
             <Route path="/album/:id" element={<Album />} />
             <Route path="/artist/:id" element={<Artist />} />
             <Route path="/song/:id" element={<SongLink />} />
+            <Route path="/recent" element={<Recent />} />
             <Route path="/playlist/:id" element={<Playlist />} />
             <Route path="/liked" element={user ? <Liked /> : <Navigate to="/login" />} />
           </Routes>
