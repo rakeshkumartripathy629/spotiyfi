@@ -203,6 +203,10 @@ export function PlayerProvider({ children }) {
         onStateChange: (e) => {
           if (e.data === YT.PlayerState.PLAYING) {
             ytPlayedRef.current = true
+            try {
+              player.unMute()
+              player.setVolume(Math.round(volumeRef.current * 100))
+            } catch {}
             setIsPlaying(true)
           } else if (e.data === YT.PlayerState.PAUSED) setIsPlaying(false)
           else if (e.data === YT.PlayerState.ENDED) {
@@ -271,6 +275,7 @@ export function PlayerProvider({ children }) {
           setDuration(0)
           if (audioRef.current) audioRef.current.pause()
           try {
+            p.mute()
             p.loadVideoById(videoId)
             p.setVolume(Math.round(volumeRef.current * 100))
             p.playVideo()
@@ -365,14 +370,7 @@ export function PlayerProvider({ children }) {
       const res = cached || (await api.post('/music/full', { title: track.title, artist: track.artist }))
       if (currentIdRef.current !== String(track.id)) return
       if (res.youtubeId) {
-        const urlP = getFullUrl(track, res.youtubeId)
         if (await playYoutube(res.youtubeId)) return
-        const u = await urlP
-        if (currentIdRef.current !== String(track.id)) return
-        if (u?.url) {
-          playFullUrl(u.url, track)
-          return
-        }
       }
       if (res.url) {
         playFullUrl(res.url, track)
