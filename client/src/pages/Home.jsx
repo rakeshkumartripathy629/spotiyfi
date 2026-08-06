@@ -29,7 +29,7 @@ const TRENDING = [
 
 export default function Home() {
   const { user } = useAuth()
-  const { recent, playTracks } = usePlayer()
+  const { recent, playTracks, prefetchFull } = usePlayer()
   const [sections, setSections] = useState([])
   const [fresh, setFresh] = useState([])
   const [moods, setMoods] = useState([])
@@ -37,6 +37,18 @@ export default function Home() {
   const [recap, setRecap] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const toPrefetch = [...daily.slice(0, 5), ...fresh.slice(0, 5)]
+    const seen = new Set()
+    for (const t of toPrefetch) {
+      const k = `${t.artist || ''} - ${t.title}`
+      if (!seen.has(k)) {
+        seen.add(k)
+        prefetchFull(t)
+      }
+    }
+  }, [daily, fresh, prefetchFull])
 
   const load = useCallback(() => {
     setLoading(true)

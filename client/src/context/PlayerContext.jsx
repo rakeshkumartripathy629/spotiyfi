@@ -420,9 +420,12 @@ export function PlayerProvider({ children }) {
     setProgress(0)
     setDuration(0)
     a.src = track.previewUrl
-    a.play().catch(() => setIsPlaying(false))
+    a.pause()
+    setIsPlaying(false)
     if (needFull) {
       resolveFull(track)
+    } else {
+      a.play().catch(() => setIsPlaying(false))
     }
     prefetchFull(q[idx + 1])
     ensureRadioBuffer()
@@ -624,6 +627,7 @@ export function PlayerProvider({ children }) {
         radio,
         playTracks,
         playTrack,
+        prefetchFull,
         togglePlay,
         next,
         prev,
