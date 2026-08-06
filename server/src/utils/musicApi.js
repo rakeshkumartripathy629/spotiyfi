@@ -340,6 +340,7 @@ async function resolveViaYtDlp(title, artist) {
       lastError = `client ${client || 'default'}: ${String(err.message || err).slice(0, 200)}`
     }
   }
+  console.warn('[YTDLP] failed:', lastError)
   return { error: lastError }
 }
 

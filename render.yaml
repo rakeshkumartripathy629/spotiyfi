@@ -3,7 +3,7 @@ services:
     name: sqotify-api
     runtime: node
     rootDir: server
-    buildCommand: npm install
+    buildCommand: npm install && node src/download-ytdlp.mjs
     startCommand: npm start
     plan: free
     envVars:
@@ -18,6 +18,9 @@ services:
         sync: false
       - key: JAMENDO_CLIENT_ID
         sync: false
+      - key: YOUTUBE_DL_SKIP_DOWNLOAD
+        sync: true
+        value: "true"
 
   - type: web
     name: sqotify-web
