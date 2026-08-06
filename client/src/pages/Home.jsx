@@ -143,18 +143,34 @@ export default function Home() {
             </section>
           )}
 
-          {recent.length > 0 && (
-            <section className="mb-8">
-              <h2 className="mb-3 text-xl font-bold">
-                Recently played{' '}
-                <span className="text-sm font-normal text-spotify-text">({recent.length} songs)</span>
-              </h2>
-              <div className="overflow-hidden rounded-md bg-spotify-card/50">
-                {recent.slice(0, 10).map((t, i) => (
-                  <TrackRow key={`r-${t.id}`} track={t} index={i} list={recent} />
-                ))}
-              </div>
-            </section>
+          {(recent.length > 0 || fresh.length > 0) && (
+            <div className="mb-8 grid items-start gap-8 lg:grid-cols-2">
+              {recent.length > 0 && (
+                <section className="min-w-0">
+                  <h2 className="mb-3 text-xl font-bold">
+                    Recently played{' '}
+                    <span className="text-sm font-normal text-spotify-text">
+                      ({recent.length} songs)
+                    </span>
+                  </h2>
+                  <div className="overflow-hidden rounded-md bg-spotify-card/50">
+                    {recent.slice(0, 8).map((t, i) => (
+                      <TrackRow key={`r-${t.id}`} track={t} index={i} list={recent} />
+                    ))}
+                  </div>
+                </section>
+              )}
+              {fresh.length > 0 && (
+                <section className="min-w-0">
+                  <h2 className="mb-3 text-xl font-bold">Fresh & recent</h2>
+                  <div className="overflow-hidden rounded-md bg-spotify-card/50">
+                    {fresh.slice(0, 8).map((t, i) => (
+                      <TrackRow key={`f-${t.id}`} track={t} index={i} list={fresh} showAlbum />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
           )}
 
           {moods.length > 0 && (
@@ -181,17 +197,6 @@ export default function Home() {
                     </Link>
                   )
                 })}
-              </div>
-            </section>
-          )}
-
-          {fresh.length > 0 && (
-            <section className="mb-8">
-              <h2 className="mb-3 text-xl font-bold">Fresh & recent</h2>
-              <div className="overflow-hidden rounded-md bg-spotify-card/50">
-                {fresh.slice(0, 10).map((t, i) => (
-                  <TrackRow key={`f-${t.id}`} track={t} index={i} list={fresh} showAlbum />
-                ))}
               </div>
             </section>
           )}
