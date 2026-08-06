@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { RefreshCw, Play, CloudRain, Heart, PartyPopper, Dumbbell, Target, Moon, Smile, Leaf, Car, Radio } from 'lucide-react'
 import { music, libraryApi } from '../api/client'
-import TrackRow from '../components/TrackRow'
 import Spinner from '../components/Spinner'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/PlayerContext'
@@ -207,12 +206,16 @@ export default function Home() {
 
           {fresh.length > 0 && (
             <section className="mb-8">
-              <h2 className="mb-3 text-xl font-bold">Fresh & recent</h2>
-              <div className="overflow-hidden rounded-md bg-spotify-card/50">
-                {fresh.slice(0, 10).map((t, i) => (
-                  <TrackRow key={`f-${t.id}`} track={t} index={i} list={fresh} showAlbum />
-                ))}
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-xl font-bold">Fresh & recent</h2>
+                <button
+                  onClick={() => playTracks(fresh, 0)}
+                  className="flex items-center gap-1.5 rounded-full bg-spotify-hover px-4 py-1.5 text-sm font-bold text-white transition hover:scale-105"
+                >
+                  <Play className="h-4 w-4 fill-current" /> Play all
+                </button>
               </div>
+              <TrackCardStrip tracks={fresh.slice(0, 12)} onPlay={(t, i) => playTracks(fresh, i)} />
             </section>
           )}
 
@@ -247,11 +250,7 @@ export default function Home() {
           {sections.map((sec) => (
             <section key={sec.country} className="mb-8">
               <h2 className="mb-3 text-xl font-bold">{sec.title}</h2>
-              <div className="overflow-hidden rounded-md bg-spotify-card/50">
-                {sec.tracks.map((t, i) => (
-                  <TrackRow key={t.id} track={t} index={i} list={sec.tracks} />
-                ))}
-              </div>
+              <TrackCardStrip tracks={sec.tracks} onPlay={(t, i) => playTracks(sec.tracks, i)} />
             </section>
           ))}
 
@@ -269,6 +268,34 @@ function RecapCard({ label, value }) {
     <div className="rounded-lg bg-spotify-card/70 px-4 py-3">
       <p className="text-[11px] font-bold uppercase tracking-widest text-spotify-text">{label}</p>
       <p className="mt-1 truncate text-base font-bold text-white">{value}</p>
+    </div>
+  )
+}
+
+function TrackCardStrip({ tracks, onPlay }) {
+  return (
+    <div className="flex snap-x gap-3 overflow-x-auto pb-2">
+      {tracks.map((t, i) => (
+        <button
+          key={t.id}
+          onClick={() => onPlay(t, i)}
+          className="group w-36 shrink-0 snap-start text-left"
+        >
+          <div className="relative">
+            <img
+              src={t.artwork || fallbackArtwork(t.title)}
+              alt={t.title}
+              loading="lazy"
+              className="aspect-square w-full rounded-lg object-cover"
+            />
+            <span className="absolute bottom-1.5 right-1.5 hidden h-9 w-9 items-center justify-center rounded-full bg-spotify-green text-black shadow-lg group-hover:flex">
+              <Play className="h-4 w-4 fill-current pl-0.5" />
+            </span>
+          </div>
+          <p className="mt-2 truncate text-sm font-semibold text-white">{t.title}</p>
+          <p className="truncate text-xs text-spotify-text">{t.artist}</p>
+        </button>
+      ))}
     </div>
   )
 }

@@ -50,7 +50,8 @@ function cached(key, fn) {
   const p = Promise.resolve()
     .then(fn)
     .then((data) => {
-      if (!(data && typeof data === 'object' && data.error)) {
+      const isEmpty = Array.isArray(data) && data.length === 0
+      if (!isEmpty && !(data && typeof data === 'object' && data.error)) {
         cache.set(key, { data, ts: Date.now() })
         pruneOldest(cache, CACHE_MAX)
       }
@@ -114,24 +115,56 @@ export async function getAlbum(collectionId) {
   })
 }
 
+const CHART_FALLBACK_QUERIES = {
+  IN: ['arijit singh', 'bollywood hits', 'punjabi'],
+  US: ['pop hits', 'top 50', 'rock'],
+  JP: ['j-pop', 'anime songs', 'japanese pop'],
+}
+
+async function buildChartsFromSearch(country, limit) {
+  const queries = CHART_FALLBACK_QUERIES[country] || ['top hits', 'best songs']
+  const all = []
+  for (const q of queries) {
+    try {
+      all.push(...(await searchMusic(q, country, 25)))
+    } catch {
+      // skip failing query
+    }
+  }
+  const seen = new Set()
+  const deduped = all.filter((t) => {
+    if (seen.has(t.id)) return false
+    seen.add(t.id)
+    return true
+  })
+  return deduped.slice(0, limit)
+}
+
 export async function getCharts(country = 'US', limit = 20) {
   const key = `charts:${country}:${limit}`
   return cached(key, async () => {
-    const { data } = await axios.get(RSS_CHARTS(country, limit))
-    return (data.feed?.results || [])
-      .filter((t) => t.kind === 'songs')
-      .map((t) => ({
-        id: String(t.id),
-        title: t.name,
-        artist: t.artistName,
-        album: '',
-        artwork: (t.artworkUrl100 || '').replace('100x100bb', '300x300bb'),
-        previewUrl: null,
-        duration: 0,
-        genre: t.genres?.[0]?.name || '',
-        collectionId: '',
-        releaseDate: t.releaseDate || null,
-      }))
+    let tracks
+    try {
+      const { data } = await axios.get(RSS_CHARTS(country, limit), { timeout: 5000 })
+      tracks = (data.feed?.results || [])
+        .filter((t) => t.kind === 'songs')
+        .map((t) => ({
+          id: String(t.id),
+          title: t.name,
+          artist: t.artistName,
+          album: '',
+          artwork: (t.artworkUrl100 || '').replace('100x100bb', '300x300bb'),
+          previewUrl: null,
+          duration: 0,
+          genre: t.genres?.[0]?.name || '',
+          collectionId: '',
+          releaseDate: t.releaseDate || null,
+        }))
+      if (!tracks.length) tracks = await buildChartsFromSearch(country, limit)
+    } catch {
+      tracks = await buildChartsFromSearch(country, limit)
+    }
+    return tracks
   })
 }
 
@@ -436,7 +469,7 @@ export async function resolveFullTrack(title, artist = '', opts = {}) {
 export async function getRecent(limit = 20) {
   const key = `recent:${limit}`
   return cached(key, async () => {
-    const queries = ['new song', 'latest song', 'new album 2026']
+    const queries = ['new song', 'latest song', 'new album 2026', 'trending songs', 'fresh music']
     const all = []
     for (const q of queries) {
       try {
