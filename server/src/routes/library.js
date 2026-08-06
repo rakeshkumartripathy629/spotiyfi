@@ -46,7 +46,7 @@ router.post('/history', async (req, res) => {
   await User.findByIdAndUpdate(req.authId, { $pull: { history: { id: String(track.id) } } })
   const user = await User.findByIdAndUpdate(
     req.authId,
-    { $push: { history: { $each: [entry], $position: 0, $slice: HISTORY_CAP } } },
+    { $push: { history: { $each: [entry], $slice: HISTORY_CAP } } },
     { new: true, select: 'history' }
   )
   res.json({ tracks: user.history })

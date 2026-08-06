@@ -253,9 +253,8 @@ export function PlayerProvider({ children }) {
   }
 
   function recordRecent(track) {
-    setRecent((prev) =>
-      [track, ...prev.filter((t) => t.id !== String(track.id))].slice(0, 24)
-    )
+    const id = String(track.id)
+    setRecent((prev) => [...prev.filter((t) => String(t.id) !== id), track].slice(0, 24))
   }
 
   async function resolveFull(track) {
