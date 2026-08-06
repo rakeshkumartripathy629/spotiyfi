@@ -224,37 +224,44 @@ async function resolveViaPiped(query, maxInstances = 4) {
   return null
 }
 
+async function raceIds(tasks) {
+  return new Promise((resolve) => {
+    let pending = tasks.length
+    if (!pending) return resolve(null)
+    for (const p of tasks) {
+      Promise.resolve(p).then((id) => {
+        if (id) resolve(id)
+        else if (--pending === 0) resolve(null)
+      })
+    }
+  })
+}
+
 async function getYoutubeId(query) {
-  const piped = pipedInstances.filter((api) => !isDown(api))
-  const tasks = []
-  for (const api of piped.slice(0, 8)) {
-    tasks.push(
-      axios
-        .get(`${api}/search`, { params: { q: query, filter: 'music_songs' }, timeout: 8000 })
-        .then(({ data }) => {
-          const item = (data.items || []).find((i) => i.url?.includes('watch?v='))
-          return item ? String(item.url).split('v=')[1] : null
-        })
-        .catch(() => {
-          markDown(api)
-          return null
-        })
-    )
-  }
+  const piped = pipedInstances.filter((api) => !isDown(api)).slice(0, 4)
+  const tasks = piped.map((api) =>
+    axios
+      .get(`${api}/search`, { params: { q: query, filter: 'music_songs' }, timeout: 7000 })
+      .then(({ data }) => {
+        const item = (data.items || []).find((i) => i.url?.includes('watch?v='))
+        return item ? String(item.url).split('v=')[1] : null
+      })
+      .catch(() => {
+        markDown(api)
+        return null
+      })
+  )
+  const id = await raceIds(tasks)
+  if (id) return id
   for (const api of invidiousInstances) {
-    tasks.push(
-      axios
-        .get(`${api}/api/v1/search`, { params: { q: query, type: 'video' }, timeout: 8000 })
-        .then(({ data }) => {
-          const item = (Array.isArray(data) ? data : []).find((i) => i.videoId)
-          return item ? String(item.videoId) : null
-        })
-        .catch(() => null)
-    )
-  }
-  for (const p of tasks) {
-    const id = await p
-    if (id) return id
+    const r = await axios
+      .get(`${api}/api/v1/search`, { params: { q: query, type: 'video' }, timeout: 7000 })
+      .then(({ data }) => {
+        const item = (Array.isArray(data) ? data : []).find((i) => i.videoId)
+        return item ? String(item.videoId) : null
+      })
+      .catch(() => null)
+    if (r) return r
   }
   return null
 }

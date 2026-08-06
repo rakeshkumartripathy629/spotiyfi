@@ -40,6 +40,7 @@ export function PlayerProvider({ children }) {
   const ytModeRef = useRef(false)
   const ytPlayedRef = useRef(false)
   const fallbackPreviewRef = useRef(null)
+  const fullResolveCacheRef = useRef(new Map())
   const ytApiPromiseRef = useRef(null)
 
   const [current, setCurrent] = useState(null)
@@ -306,6 +307,23 @@ export function PlayerProvider({ children }) {
     setRecent((prev) => [...prev.filter((t) => String(t.id) !== id), track].slice(0, 24))
   }
 
+  function prefetchFull(track) {
+    if (!track?.title || track.full) return
+    const key = `${track.artist || ''} - ${track.title}`
+    if (fullResolveCacheRef.current.has(key)) return
+    api
+      .post('/music/full', { title: track.title, artist: track.artist })
+      .then((res) => {
+        if (!res?.youtubeId && !res?.url) return
+        if (fullResolveCacheRef.current.size >= 40) {
+          const first = fullResolveCacheRef.current.keys().next().value
+          if (first) fullResolveCacheRef.current.delete(first)
+        }
+        fullResolveCacheRef.current.set(key, res)
+      })
+      .catch(() => {})
+  }
+
   function playFullUrl(url, track) {
     ytModeRef.current = false
     const a = audioRef.current
@@ -324,7 +342,10 @@ export function PlayerProvider({ children }) {
 
   async function resolveFull(track) {
     try {
-      const res = await api.post('/music/full', { title: track.title, artist: track.artist })
+      const key = `${track.artist || ''} - ${track.title}`
+      const cached = fullResolveCacheRef.current.get(key)
+      if (cached) fullResolveCacheRef.current.delete(key)
+      const res = cached || (await api.post('/music/full', { title: track.title, artist: track.artist }))
       if (currentIdRef.current !== String(track.id)) return
       if (res.youtubeId) {
         if (await playYoutube(res.youtubeId)) return
@@ -378,13 +399,11 @@ export function PlayerProvider({ children }) {
     setProgress(0)
     setDuration(0)
     a.src = track.previewUrl
-    a.pause()
-    setIsPlaying(false)
+    a.play().catch(() => setIsPlaying(false))
     if (needFull) {
       resolveFull(track)
-    } else {
-      a.play().catch(() => setIsPlaying(false))
     }
+    prefetchFull(q[idx + 1])
     ensureRadioBuffer()
   }
   playAtRef.current = playAt
@@ -395,6 +414,7 @@ export function PlayerProvider({ children }) {
     queueRef.current = withUrls
     let start = startIndex
     if (shuffleRef.current && withUrls.length > 1) start = Math.floor(Math.random() * withUrls.length)
+    prefetchFull(withUrls[start])
     playAt(start, false)
   }
 
