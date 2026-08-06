@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { RefreshCw, CloudRain, Heart, PartyPopper, Dumbbell, Target, Moon, Smile, Leaf, Car, Radio } from 'lucide-react'
-import { music } from '../api/client'
+import { RefreshCw, Play, CloudRain, Heart, PartyPopper, Dumbbell, Target, Moon, Smile, Leaf, Car, Radio } from 'lucide-react'
+import { music, libraryApi } from '../api/client'
 import TrackRow from '../components/TrackRow'
 import Spinner from '../components/Spinner'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/PlayerContext'
+import { fallbackArtwork } from '../utils/format'
 
 const MOOD_ICONS = {
   Sad: CloudRain,
@@ -28,10 +29,12 @@ const TRENDING = [
 
 export default function Home() {
   const { user } = useAuth()
-  const { recent } = usePlayer()
+  const { recent, playTracks } = usePlayer()
   const [sections, setSections] = useState([])
   const [fresh, setFresh] = useState([])
   const [moods, setMoods] = useState([])
+  const [daily, setDaily] = useState([])
+  const [recap, setRecap] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -46,10 +49,14 @@ export default function Home() {
       ),
       music.recent(20),
       music.moods(),
-    ]).then(([trending, rec, mood]) => {
+      music.daily(),
+      libraryApi.recap(),
+    ]).then(([trending, rec, mood, dailyRes, recapRes]) => {
       setSections(trending.status === 'fulfilled' ? trending.value : [])
       setFresh(rec.status === 'fulfilled' ? rec.value.tracks : [])
       setMoods(mood.status === 'fulfilled' ? mood.value.moods : [])
+      setDaily(dailyRes.status === 'fulfilled' ? dailyRes.value.tracks : [])
+      setRecap(recapRes.status === 'fulfilled' ? recapRes.value.week : null)
       setError(
         trending.status === 'rejected' && rec.status === 'rejected' && mood.status === 'rejected'
           ? 'Music load nahi ho paya. Server abhi jaga raha hoga — retry karo.'
@@ -86,6 +93,54 @@ export default function Home() {
                 <RefreshCw className="h-3.5 w-3.5" /> Retry
               </button>
             </div>
+          )}
+
+          {recap && recap.totalSongs > 0 && (
+            <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <RecapCard label="Sune is hafte" value={String(recap.totalSongs)} />
+              <RecapCard label="Minutes" value={String(recap.totalMinutes)} />
+              <RecapCard label="Top artist" value={recap.topArtist || '—'} />
+              <RecapCard label="Favourite gaana" value={recap.topTrack || '—'} />
+            </div>
+          )}
+
+          {daily.length > 0 && (
+            <section className="mb-8">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-xl font-bold">Aaj ke 10 gaane</h2>
+                <button
+                  onClick={() => playTracks(daily, 0)}
+                  className="flex items-center gap-1.5 rounded-full bg-spotify-green px-4 py-1.5 text-sm font-bold text-black transition hover:scale-105"
+                >
+                  <Play className="h-4 w-4 fill-current" /> Play all
+                </button>
+              </div>
+              <div className="flex snap-x gap-3 overflow-x-auto pb-2">
+                {daily.map((t, i) => (
+                  <button
+                    key={t.id}
+                    onClick={() => playTracks(daily, i)}
+                    className="group w-32 shrink-0 snap-start text-left"
+                  >
+                    <div className="relative">
+                      <img
+                        src={t.artwork || fallbackArtwork(t.title)}
+                        alt={t.title}
+                        className="aspect-square w-full rounded-lg object-cover"
+                      />
+                      <span className="absolute bottom-1.5 right-1.5 hidden h-9 w-9 items-center justify-center rounded-full bg-spotify-green text-black shadow-lg group-hover:flex">
+                        <Play className="h-4 w-4 fill-current pl-0.5" />
+                      </span>
+                      <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        {i + 1}
+                      </span>
+                    </div>
+                    <p className="mt-2 truncate text-sm font-semibold text-white">{t.title}</p>
+                    <p className="truncate text-xs text-spotify-text">{t.artist}</p>
+                  </button>
+                ))}
+              </div>
+            </section>
           )}
 
           {recent.length > 0 && (
@@ -157,6 +212,15 @@ export default function Home() {
           )}
         </>
       )}
+    </div>
+  )
+}
+
+function RecapCard({ label, value }) {
+  return (
+    <div className="rounded-lg bg-spotify-card/70 px-4 py-3">
+      <p className="text-[11px] font-bold uppercase tracking-widest text-spotify-text">{label}</p>
+      <p className="mt-1 truncate text-base font-bold text-white">{value}</p>
     </div>
   )
 }

@@ -17,11 +17,21 @@ function publicUser(user) {
 router.post('/register', async (req, res) => {
   const { name, email, password } = req.body || {}
   if (!name || !email || !password) return res.status(400).json({ error: 'All fields are required' })
-  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' })
+  const cleanName = String(name).trim()
+  if (cleanName.length < 2 || cleanName.length > 50)
+    return res.status(400).json({ error: 'Name must be 2-50 characters' })
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email)))
+    return res.status(400).json({ error: 'Invalid email address' })
+  if (String(password).length < 6 || String(password).length > 72)
+    return res.status(400).json({ error: 'Password must be 6-72 characters' })
   try {
     const exists = await User.findOne({ email: String(email).toLowerCase() })
     if (exists) return res.status(409).json({ error: 'Email already registered' })
-    const user = await User.create({ name, email, password: await bcrypt.hash(password, 10) })
+    const user = await User.create({
+      name: cleanName,
+      email,
+      password: await bcrypt.hash(String(password), 10),
+    })
     res.status(201).json({ token: signToken(user), user: publicUser(user) })
   } catch (err) {
     res.status(500).json({ error: err.message })

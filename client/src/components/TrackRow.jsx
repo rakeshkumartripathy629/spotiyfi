@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { Play, Heart, Plus, Check, Trash2 } from "lucide-react";
+import { Play, Heart, Plus, Check, Trash2, MoreVertical, Share2, Radio } from "lucide-react";
 import { usePlayer } from "../context/PlayerContext";
 import { useAuth } from "../context/AuthContext";
 import { useLibrary } from "../context/LibraryContext";
@@ -13,7 +13,7 @@ export default function TrackRow({
   showAlbum = false,
   onRemove = null,
 }) {
-  const { playTracks } = usePlayer();
+  const { playTracks, startRadio } = usePlayer();
   const { user } = useAuth();
   const {
     isFavorite,
@@ -23,8 +23,11 @@ export default function TrackRow({
     createPlaylist,
   } = useLibrary();
   const [open, setOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [newName, setNewName] = useState("");
   const popRef = useRef(null);
+  const moreRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
@@ -34,6 +37,33 @@ export default function TrackRow({
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handler = (e) => {
+      if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [moreOpen]);
+
+  const share = async () => {
+    const url = `${window.location.origin}/song/${track.id}`;
+    const text = `${track.title} — ${track.artist} on Sqotify`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: track.title, text, url });
+        setMoreOpen(false);
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      } else {
+        window.prompt("Copy link:", url);
+        setMoreOpen(false);
+      }
+    } catch {}
+  };
 
   const fav = isFavorite(track.id);
   const added = (plId) =>
@@ -169,6 +199,35 @@ export default function TrackRow({
             <Trash2 className="h-4 w-4" />
           </button>
         )}
+        <div className="relative" ref={moreRef}>
+          <button
+            onClick={() => setMoreOpen((o) => !o)}
+            className="p-1 text-spotify-text hover:text-white md:opacity-0 md:group-hover:opacity-100"
+            title="More"
+          >
+            <MoreVertical className="h-4 w-4" />
+          </button>
+          {moreOpen && (
+            <div className="absolute bottom-8 right-0 z-30 w-48 rounded-lg border border-spotify-hover bg-spotify-card p-1.5 shadow-xl">
+              <button
+                onClick={() => {
+                  setMoreOpen(false);
+                  startRadio(track);
+                }}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-white hover:bg-spotify-hover"
+              >
+                <Radio className="h-4 w-4 text-spotify-green" /> Start radio
+              </button>
+              <button
+                onClick={share}
+                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-white hover:bg-spotify-hover"
+              >
+                <Share2 className="h-4 w-4 text-spotify-text" />
+                {copied ? "Link copied!" : "Share song"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

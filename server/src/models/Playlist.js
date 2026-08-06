@@ -11,4 +11,6 @@ const playlistSchema = new mongoose.Schema(
   { timestamps: true }
 )
 
+playlistSchema.index({ user: 1, updatedAt: -1 })
+
 export default mongoose.model('Playlist', playlistSchema)

@@ -9,14 +9,56 @@ const JAMENDO_TRACKS = 'https://api.jamendo.com/v3.0/tracks/'
 
 const cache = new Map()
 const CACHE_TTL = 60 * 60 * 1000
+const FULL_TTL = 6 * 60 * 60 * 1000
+const CACHE_MAX = 1000
+const FULL_MAX = 500
+const inFlight = new Map()
+
+function pruneOldest(map, max) {
+  if (map.size <= max) return
+  let oldestKey = null
+  let oldestTs = Infinity
+  for (const [k, v] of map) {
+    if (v.ts < oldestTs) {
+      oldestTs = v.ts
+      oldestKey = k
+    }
+  }
+  if (oldestKey) map.delete(oldestKey)
+}
+
+function sweep(map, ttl) {
+  const now = Date.now()
+  for (const [k, v] of map) if (now - v.ts > ttl) map.delete(k)
+}
+
+setInterval(() => {
+  sweep(cache, CACHE_TTL)
+  sweep(fullCache, FULL_TTL)
+  pruneOldest(cache, CACHE_MAX)
+  pruneOldest(fullCache, FULL_MAX)
+}, 10 * 60 * 1000)
+setInterval(() => {
+  pruneOldest(cache, CACHE_MAX)
+  pruneOldest(fullCache, FULL_MAX)
+}, 60 * 1000)
 
 function cached(key, fn) {
   const hit = cache.get(key)
   if (hit && Date.now() - hit.ts < CACHE_TTL) return Promise.resolve(hit.data)
-  return fn().then((data) => {
-    cache.set(key, { data, ts: Date.now() })
-    return data
-  })
+  if (inFlight.has(key)) return inFlight.get(key)
+  const p = Promise.resolve()
+    .then(fn)
+    .then((data) => {
+      if (!(data && typeof data === 'object' && data.error)) {
+        cache.set(key, { data, ts: Date.now() })
+        pruneOldest(cache, CACHE_MAX)
+      }
+      return data
+    })
+    .finally(() => inFlight.delete(key))
+  inFlight.set(key, p)
+  return p
 }
 
 function normalizeTrack(t) {
@@ -113,7 +155,6 @@ export async function resolveChartTrack(track) {
 }
 
 const fullCache = new Map()
-const FULL_TTL = 6 * 60 * 60 * 1000
 
 const pipedInstances = [
   'https://api.piped.private.coffee',
@@ -122,8 +163,23 @@ const pipedInstances = [
   'https://pipedapi.kavin.rocks',
 ]
 
+const instanceHealth = new Map()
+
+function isDown(api) {
+  const h = instanceHealth.get(api)
+  return !!h && h.downUntil > Date.now()
+}
+
+function markDown(api) {
+  instanceHealth.set(api, { downUntil: Date.now() + 5 * 60 * 1000 })
+}
+
+function healthyInstances() {
+  return pipedInstances.filter((api) => !isDown(api))
+}
+
 function getPipedInstances() {
-  return pipedInstances
+  return healthyInstances()
 }
 
 async function firstSuccess(promises) {
@@ -145,7 +201,7 @@ async function firstSuccess(promises) {
 }
 
 async function resolveViaPiped(query, maxInstances = 4) {
-  const instances = await getPipedInstances()
+  const instances = getPipedInstances()
   for (const api of instances.slice(0, maxInstances)) {
     try {
       const { data } = await axios.get(`${api}/search`, {
@@ -166,7 +222,7 @@ async function resolveViaPiped(query, maxInstances = 4) {
         .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))
       if (audios.length) return { url: audios[0].url }
     } catch {
-      // try next instance
+      markDown(api)
     }
   }
   return null
@@ -177,12 +233,17 @@ async function getYoutubeId(query) {
   try {
     return await firstSuccess(
       instances.map(async (api) => {
-        const { data } = await axios.get(`${api}/search`, {
-          params: { q: query, filter: 'music_songs' },
-          timeout: 9000,
-        })
-        const item = (data.items || []).find((i) => i.url?.includes('watch?v='))
-        return item ? String(item.url).split('v=')[1] : null
+        try {
+          const { data } = await axios.get(`${api}/search`, {
+            params: { q: query, filter: 'music_songs' },
+            timeout: 9000,
+          })
+          const item = (data.items || []).find((i) => i.url?.includes('watch?v='))
+          return item ? String(item.url).split('v=')[1] : null
+        } catch {
+          markDown(api)
+          throw new Error('instance failed')
+        }
       })
     )
   } catch {
@@ -260,29 +321,35 @@ export async function resolveFullTrack(title, artist = '') {
   const key = `${artist} - ${title}`
   const hit = fullCache.get(key)
   if (hit && Date.now() - hit.ts < FULL_TTL) return hit.data
+  if (inFlight.has(key)) return inFlight.get(key)
+  const run = async () => {
+    const jamendo = await searchJamendo(`${artist} ${title}`, 5).catch(() => ({ enabled: false, tracks: [] }))
+    if (jamendo.enabled && jamendo.tracks.length) {
+      return { url: jamendo.tracks[0].previewUrl }
+    }
 
-  const store = (data) => {
-    fullCache.set(key, { data, ts: Date.now() })
+    if (!process.env.RENDER) {
+      const yt = await resolveViaYtDlp(title, artist).catch(() => ({}))
+      if (yt.url) return { url: yt.url }
+
+      const piped = await resolveViaPiped(`${artist} ${title} official audio`).catch(() => null)
+      if (piped?.url) return { url: piped.url }
+    }
+
+    const youtubeId = await getYoutubeId(`${artist} ${title} official audio`).catch(() => null)
+    if (youtubeId) return { youtubeId }
+
+    return { error: 'No source available (Jamendo, YouTube, Piped all failed)' }
+  }
+  const p = run().then((data) => {
+    if (!data?.error) {
+      fullCache.set(key, { data, ts: Date.now() })
+      pruneOldest(fullCache, FULL_MAX)
+    }
     return data
-  }
-
-  const jamendo = await searchJamendo(`${artist} ${title}`, 5).catch(() => ({ enabled: false, tracks: [] }))
-  if (jamendo.enabled && jamendo.tracks.length) {
-    return store({ url: jamendo.tracks[0].previewUrl })
-  }
-
-  if (!process.env.RENDER) {
-    const yt = await resolveViaYtDlp(title, artist).catch(() => ({}))
-    if (yt.url) return store({ url: yt.url })
-
-    const piped = await resolveViaPiped(`${artist} ${title} official audio`).catch(() => null)
-    if (piped?.url) return store({ url: piped.url })
-  }
-
-  const youtubeId = await getYoutubeId(`${artist} ${title} official audio`).catch(() => null)
-  if (youtubeId) return store({ youtubeId })
-
-  return { error: 'No source available (Jamendo, YouTube, Piped all failed)' }
+  })
+  inFlight.set(key, p)
+  return p
 }
 
 export async function getRecent(limit = 20) {
@@ -459,6 +526,58 @@ export async function getSimilar(title, artist = '') {
       }
     }
     return [...map.values()].slice(0, 30)
+  })
+}
+
+export async function getTrack(trackId) {
+  const key = `track:${trackId}`
+  return cached(key, async () => {
+    const { data } = await axios.get(ITUNES_LOOKUP, {
+      params: { id: trackId, entity: 'song', limit: 1 },
+      timeout: 12000,
+    })
+    const row = (data.results || []).find(
+      (r) => r.wrapperType === 'track' && r.previewUrl
+    )
+    if (!row) return null
+    return normalizeTrack(row)
+  })
+}
+
+function seededShuffle(arr, seedStr) {
+  let seed = 0
+  for (const ch of seedStr) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0
+    return seed / 4294967296
+  }
+  const copy = [...arr]
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+  }
+  return copy
+}
+
+export async function getDaily() {
+  const dayKey = new Date().toISOString().slice(0, 10)
+  const key = `daily:${dayKey}`
+  return cached(key, async () => {
+    const pools = await Promise.allSettled([
+      searchMusic('top hits', 'IN', 50),
+      searchMusic('best of 2026', 'US', 30),
+      getCharts('IN', 50),
+      getCharts('US', 50),
+      getRecent(30),
+    ])
+    const seen = new Map()
+    for (const r of pools) {
+      if (r.status !== 'fulfilled') continue
+      for (const t of r.value) {
+        if (t.previewUrl && !seen.has(t.id)) seen.set(t.id, t)
+      }
+    }
+    return seededShuffle([...seen.values()], dayKey).slice(0, 10)
   })
 }
 

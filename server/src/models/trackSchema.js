@@ -10,6 +10,10 @@ export const trackSchema = new mongoose.Schema(
     previewUrl: String,
     duration: Number,
     collectionId: String,
+    artistId: String,
+    genre: String,
+    releaseDate: Date,
+    listenedAt: Date,
   },
   { _id: false }
 )

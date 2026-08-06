@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
-import api from '../api/client'
-import { libraryApi } from '../api/client'
+import api, { music, libraryApi } from '../api/client'
 import { useAuth } from './AuthContext'
 
 const PlayerContext = createContext(null)
@@ -52,6 +51,8 @@ export function PlayerProvider({ children }) {
   const [repeat, setRepeat] = useState('off')
   const [fullStatus, setFullStatus] = useState('preview')
   const [fullEnabled, setFullEnabled] = useState(fullEnabledRef.current)
+  const [radio, setRadio] = useState(false)
+  const radioRef = useRef(false)
   const [recent, setRecent] = useState(() => {
     try {
       return JSON.parse(safeGet(recentKeyFor(user)) || '[]') || []
@@ -317,6 +318,7 @@ export function PlayerProvider({ children }) {
     } else {
       a.play().catch(() => setIsPlaying(false))
     }
+    ensureRadioBuffer()
   }
   playAtRef.current = playAt
 
@@ -454,6 +456,48 @@ export function PlayerProvider({ children }) {
     setQueue(nq)
   }
 
+  async function ensureRadioBuffer() {
+    if (!radioRef.current) return
+    const q = queueRef.current
+    const curIdx = indexRef.current
+    if (!q.length || curIdx < 0 || curIdx >= q.length) return
+    if (curIdx < q.length - 5) return
+    const seed = q[curIdx]
+    if (!seed?.title) return
+    let tracks = []
+    try {
+      tracks = (await music.similar(seed.title, seed.artist)).tracks || []
+    } catch {
+      return
+    }
+    const known = new Set(q.map((t) => t.id))
+    const fresh = tracks.filter((t) => t.previewUrl && !known.has(t.id))
+    if (!fresh.length) return
+    const nq = [...q, ...fresh.slice(0, 20)]
+    queueRef.current = nq
+    setQueue(nq)
+  }
+
+  async function startRadio(track) {
+    if (!track?.title) return
+    radioRef.current = true
+    setRadio(true)
+    let tracks = []
+    try {
+      tracks = (await music.similar(track.title, track.artist)).tracks || []
+    } catch {}
+    const fresh = tracks.filter((t) => t.previewUrl && t.id !== String(track.id))
+    const seedTrack = { ...track }
+    queueRef.current = [seedTrack, ...fresh.slice(0, 20)]
+    indexRef.current = 0
+    playAt(0, false)
+  }
+
+  function stopRadio() {
+    radioRef.current = false
+    setRadio(false)
+  }
+
   return (
     <PlayerContext.Provider
       value={{
@@ -469,6 +513,7 @@ export function PlayerProvider({ children }) {
         fullStatus,
         fullEnabled,
         recent,
+        radio,
         playTracks,
         playTrack,
         togglePlay,
@@ -482,6 +527,8 @@ export function PlayerProvider({ children }) {
         addToQueue,
         removeFromQueue,
         playNext,
+        startRadio,
+        stopRadio,
       }}
     >
       {children}

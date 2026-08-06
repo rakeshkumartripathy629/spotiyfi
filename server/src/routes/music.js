@@ -12,6 +12,8 @@ import {
   getLyrics,
   getArtist,
   getSimilar,
+  getTrack,
+  getDaily,
 } from '../utils/musicApi.js'
 
 const router = Router()
@@ -143,6 +145,25 @@ router.get('/similar', async (req, res) => {
     res.json({ tracks })
   } catch (err) {
     res.status(502).json({ error: 'Failed to load similar tracks', detail: err.message })
+  }
+})
+
+router.get('/daily', async (req, res) => {
+  try {
+    const tracks = await getDaily()
+    res.json({ tracks })
+  } catch (err) {
+    res.status(502).json({ error: 'Failed to load daily mix', detail: err.message })
+  }
+})
+
+router.get('/track/:id', async (req, res) => {
+  try {
+    const track = await getTrack(req.params.id)
+    if (!track) return res.status(404).json({ error: 'Track not found' })
+    res.json({ track })
+  } catch (err) {
+    res.status(502).json({ error: 'Failed to load track', detail: err.message })
   }
 })
 

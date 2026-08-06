@@ -1,9 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { Search as SearchIcon, X, Loader2 } from 'lucide-react'
+import { Search as SearchIcon, X, Loader2, Mic } from 'lucide-react'
 import { music } from '../api/client'
 import TrackRow from '../components/TrackRow'
 import Spinner from '../components/Spinner'
+
+const SpeechRecognition =
+  typeof window !== 'undefined'
+    ? window.SpeechRecognition || window.webkitSpeechRecognition
+    : null
 
 export default function Search() {
   const [params, setParams] = useSearchParams()
@@ -17,6 +22,8 @@ export default function Search() {
   const [expanding, setExpanding] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [searched, setSearched] = useState(false)
+  const [listening, setListening] = useState(false)
+  const [voiceMsg, setVoiceMsg] = useState('')
 
   useEffect(() => {
     setInput(q)
@@ -88,6 +95,28 @@ export default function Search() {
     if (input.trim()) setParams({ q: input.trim() })
   }
 
+  const startVoice = () => {
+    if (!SpeechRecognition) {
+      setVoiceMsg('Voice search is not supported in this browser. Try Chrome or Edge.')
+      setTimeout(() => setVoiceMsg(''), 3500)
+      return
+    }
+    const rec = new SpeechRecognition()
+    rec.lang = 'hi-IN'
+    rec.interimResults = false
+    rec.maxAlternatives = 1
+    setListening(true)
+    setVoiceMsg('')
+    rec.onresult = (e) => {
+      const text = e.results[0][0].transcript
+      setInput(text)
+      setParams({ q: text.trim() })
+    }
+    rec.onerror = () => setListening(false)
+    rec.onend = () => setListening(false)
+    rec.start()
+  }
+
   return (
     <div className="p-6">
       <form onSubmit={submit} className="mb-4 flex items-center gap-2">
@@ -116,6 +145,16 @@ export default function Search() {
               <X className="h-4 w-4" />
             </button>
           )}
+          <button
+            type="button"
+            onClick={startVoice}
+            className={`p-1 transition ${
+              listening ? 'animate-pulse text-red-500' : 'text-spotify-text hover:text-white'
+            }`}
+            title="Bol ke search karo"
+          >
+            <Mic className="h-5 w-5" />
+          </button>
         </div>
         <select
           value={country}
@@ -129,6 +168,14 @@ export default function Search() {
           ))}
         </select>
       </form>
+
+      {voiceMsg && <p className="mb-2 text-sm text-amber-400">{voiceMsg}</p>}
+      {listening && (
+        <p className="mb-2 flex items-center gap-2 text-sm text-red-400">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" /> Sun raha hoon... bolna
+          shuru karo
+        </p>
+      )}
 
       {!searched && (
         <p className="mt-16 text-center text-spotify-text">

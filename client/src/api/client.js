@@ -47,6 +47,8 @@ export const music = {
   artist: (id) => api.get(`/music/artist/${id}`),
   lyrics: (title, artist) => api.get('/music/lyrics', { params: { title, artist } }),
   similar: (title, artist) => api.get('/music/similar', { params: { title, artist } }),
+  daily: () => api.get('/music/daily'),
+  track: (id) => api.get(`/music/track/${id}`),
 }
 
 export const authApi = {
@@ -61,6 +63,7 @@ export const libraryApi = {
   removeFavorite: (id) => api.delete(`/library/favorites/${id}`),
   history: () => api.get('/library/history'),
   addHistory: (track) => api.post('/library/history', track),
+  recap: () => api.get('/library/recap'),
   playlists: () => api.get('/library/playlists'),
   createPlaylist: (name) => api.post('/library/playlists', { name }),
   playlist: (id) => api.get(`/library/playlists/${id}`),

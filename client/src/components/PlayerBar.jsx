@@ -52,6 +52,7 @@ export default function PlayerBar() {
     repeat,
     fullStatus,
     fullEnabled,
+    radio,
     togglePlay,
     next,
     prev,
@@ -60,6 +61,7 @@ export default function PlayerBar() {
     toggleShuffle,
     toggleRepeat,
     toggleFull,
+    stopRadio,
   } = usePlayer()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [lyricsOpen, setLyricsOpen] = useState(false)
@@ -191,6 +193,15 @@ export default function PlayerBar() {
             >
               <Radio className="h-3 w-3" /> Full
             </button>
+            {radio && (
+              <button
+                onClick={stopRadio}
+                title="Radio ON — band karo"
+                className="flex items-center gap-1 rounded-full bg-spotify-green/20 px-2 py-1 text-[11px] font-bold text-spotify-green animate-pulse"
+              >
+                <Radio className="h-3 w-3" /> Radio
+              </button>
+            )}
             <Volume2 className="h-4 w-4 text-spotify-text" />
             <input
               type="range"
@@ -390,6 +401,17 @@ export default function PlayerBar() {
                   >
                     <Radio className="h-3.5 w-3.5" /> Full tracks
                   </button>
+                  {radio && (
+                    <button
+                      onClick={stopRadio}
+                      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold animate-pulse ${
+                        radio ? 'bg-spotify-green/20 text-spotify-green' : ''
+                      }`}
+                      title="Radio ON — band karo"
+                    >
+                      <Radio className="h-3.5 w-3.5" /> Radio
+                    </button>
+                  )}
                   <div className="flex flex-1 items-center gap-2">
                     <Volume2 className="h-5 w-5 text-spotify-text" />
                     <input
