@@ -331,32 +331,41 @@ const withTimeout = (p, ms) =>
     new Promise((resolve) => setTimeout(() => resolve(null), ms)),
   ])
 
-export async function resolveFullTrack(title, artist = '') {
+export async function resolveFullTrack(title, artist = '', opts = {}) {
   const key = `${artist} - ${title}`
   const hit = fullCache.get(key)
   if (hit && Date.now() - hit.ts < FULL_TTL) return hit.data
   if (inFlight.has(key)) return inFlight.get(key)
   const run = async () => {
+    if (opts.withUrl) {
+      const [piped, ytUrl] = await Promise.all([
+        resolveViaPiped(`${artist} ${title} official audio`).catch(() => null),
+        process.env.RENDER
+          ? withTimeout(resolveViaYtDlp(title, artist), 15000)
+              .catch(() => null)
+              .then((r) => r?.url || null)
+          : Promise.resolve(null),
+      ])
+      const url = piped?.url || ytUrl || null
+      if (url) return { url }
+      return { error: 'No url source available (Piped, yt-dlp failed)' }
+    }
+
     const jamendo = await searchJamendo(`${artist} ${title}`, 5).catch(() => ({ enabled: false, tracks: [] }))
     if (jamendo.enabled && jamendo.tracks.length) {
       return { url: jamendo.tracks[0].previewUrl }
     }
 
-    const [youtubeId, piped, ytUrl] = await Promise.all([
-      getYoutubeId(`${artist} ${title} official audio`).catch(() => null),
-      resolveViaPiped(`${artist} ${title} official audio`).catch(() => null),
-      process.env.RENDER
-        ? withTimeout(resolveViaYtDlp(title, artist), 12000)
-            .catch(() => null)
-            .then((r) => r?.url || null)
-        : Promise.resolve(null),
-    ])
-    if (youtubeId || piped?.url || ytUrl) {
-      return {
-        youtubeId: youtubeId || undefined,
-        url: piped?.url || ytUrl || undefined,
-      }
+    if (!process.env.RENDER) {
+      const yt = await resolveViaYtDlp(title, artist).catch(() => ({}))
+      if (yt.url) return { url: yt.url }
     }
+
+    const youtubeId = await getYoutubeId(`${artist} ${title} official audio`).catch(() => null)
+    if (youtubeId) return { youtubeId }
+
+    const piped = await resolveViaPiped(`${artist} ${title} official audio`).catch(() => null)
+    if (piped?.url) return { url: piped.url }
 
     return { error: 'No source available (Jamendo, YouTube, Piped all failed)' }
   }

@@ -306,6 +306,22 @@ export function PlayerProvider({ children }) {
     setRecent((prev) => [...prev.filter((t) => String(t.id) !== id), track].slice(0, 24))
   }
 
+  function playFullUrl(url, track) {
+    ytModeRef.current = false
+    const a = audioRef.current
+    fallbackPreviewRef.current = track?.previewUrl || null
+    a.src = url
+    setFullStatus('full')
+    setProgress(0)
+    setDuration(0)
+    const clearFallback = () => {
+      fallbackPreviewRef.current = null
+      a.removeEventListener('playing', clearFallback)
+    }
+    a.addEventListener('playing', clearFallback)
+    a.play().catch(() => setIsPlaying(false))
+  }
+
   async function resolveFull(track) {
     try {
       const res = await api.post('/music/full', { title: track.title, artist: track.artist })
@@ -314,19 +330,17 @@ export function PlayerProvider({ children }) {
         if (await playYoutube(res.youtubeId)) return
       }
       if (res.url) {
-        ytModeRef.current = false
-        const a = audioRef.current
-        fallbackPreviewRef.current = track.previewUrl || null
-        a.src = res.url
-        setFullStatus('full')
-        setProgress(0)
-        setDuration(0)
-        const clearFallback = () => {
-          fallbackPreviewRef.current = null
-          a.removeEventListener('playing', clearFallback)
-        }
-        a.addEventListener('playing', clearFallback)
-        a.play().catch(() => setIsPlaying(false))
+        playFullUrl(res.url, track)
+        return
+      }
+      const res2 = await api.post('/music/full', {
+        title: track.title,
+        artist: track.artist,
+        withUrl: true,
+      })
+      if (currentIdRef.current !== String(track.id)) return
+      if (res2.url) {
+        playFullUrl(res2.url, track)
         return
       }
       setFullStatus('preview')
@@ -364,9 +378,12 @@ export function PlayerProvider({ children }) {
     setProgress(0)
     setDuration(0)
     a.src = track.previewUrl
-    a.play().catch(() => setIsPlaying(false))
+    a.pause()
+    setIsPlaying(false)
     if (needFull) {
       resolveFull(track)
+    } else {
+      a.play().catch(() => setIsPlaying(false))
     }
     ensureRadioBuffer()
   }
