@@ -38,6 +38,8 @@ export function PlayerProvider({ children }) {
   const volumeRef = useRef(0.8)
   const ytPlayerRef = useRef(null)
   const ytModeRef = useRef(false)
+  const ytPlayedRef = useRef(false)
+  const fallbackPreviewRef = useRef(null)
   const ytApiPromiseRef = useRef(null)
 
   const [current, setCurrent] = useState(null)
@@ -127,7 +129,17 @@ export function PlayerProvider({ children }) {
     const onPlay = () => setIsPlaying(true)
     const onPause = () => setIsPlaying(false)
     const onEnded = () => playAtRef.current && playAtRef.current(handleEndedIndex(), true)
-    const onError = () => setIsPlaying(false)
+    const onError = () => {
+      const prev = fallbackPreviewRef.current
+      if (prev) {
+        fallbackPreviewRef.current = null
+        setFullStatus('preview')
+        audio.src = prev
+        audio.play().catch(() => setIsPlaying(false))
+        return
+      }
+      setIsPlaying(false)
+    }
 
     audio.addEventListener('timeupdate', onTime)
     audio.addEventListener('play', onPlay)
@@ -171,8 +183,8 @@ export function PlayerProvider({ children }) {
       tag.src = 'https://www.youtube.com/iframe_api'
       document.head.appendChild(tag)
       setTimeout(() => {
-        if (window.YT?.Player) resolve(window.YT)
-      }, 12000)
+        resolve(window.YT?.Player ? window.YT : null)
+      }, 8000)
     })
     return ytApiPromiseRef.current
   }
@@ -187,8 +199,10 @@ export function PlayerProvider({ children }) {
       playerVars: { autoplay: 1, playsinline: 1, iv_load_policy: 3, rel: 0 },
       events: {
         onStateChange: (e) => {
-          if (e.data === YT.PlayerState.PLAYING) setIsPlaying(true)
-          else if (e.data === YT.PlayerState.PAUSED) setIsPlaying(false)
+          if (e.data === YT.PlayerState.PLAYING) {
+            ytPlayedRef.current = true
+            setIsPlaying(true)
+          } else if (e.data === YT.PlayerState.PAUSED) setIsPlaying(false)
           else if (e.data === YT.PlayerState.ENDED) {
             playAtRef.current && playAtRef.current(handleEndedIndex(), true)
           }
@@ -200,6 +214,9 @@ export function PlayerProvider({ children }) {
       if (iframe) {
         iframe.style.cssText =
           'position:fixed;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;border:0;'
+        try {
+          iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture')
+        } catch {}
       }
     }
     if (player.getIframe?.()) onReady()
@@ -228,28 +245,60 @@ export function PlayerProvider({ children }) {
     }
   }, [])
 
-  async function playYoutube(videoId) {
-    try {
-      const YT = await loadYtApi()
-      ensureYtPlayer(YT)
-      ytModeRef.current = true
-      setFullStatus('full')
-      setProgress(0)
-      setDuration(0)
-      if (audioRef.current) audioRef.current.pause()
-      ytPlayerRef.current.loadVideoById(videoId)
-      try {
-        ytPlayerRef.current.setVolume(Math.round(volumeRef.current * 100))
-      } catch {}
-      try {
-        ytPlayerRef.current.playVideo()
-      } catch {}
-    } catch {
-      if (currentIdRef.current) {
-        setFullStatus('preview')
-        audioRef.current?.play().catch(() => setIsPlaying(false))
+  function playYoutube(videoId) {
+    return new Promise((resolve) => {
+      const finish = (ok) => {
+        if (currentIdRef.current && !ok) {
+          ytModeRef.current = false
+          try {
+            ytPlayerRef.current?.stopVideo()
+          } catch {}
+        }
+        resolve(ok)
       }
-    }
+      loadYtApi()
+        .then((YT) => {
+          if (!YT) return finish(false)
+          ensureYtPlayer(YT)
+          const p = ytPlayerRef.current
+          if (!p) return finish(false)
+          ytPlayedRef.current = false
+          ytModeRef.current = true
+          setFullStatus('full')
+          setProgress(0)
+          setDuration(0)
+          if (audioRef.current) audioRef.current.pause()
+          try {
+            p.loadVideoById(videoId)
+            p.setVolume(Math.round(volumeRef.current * 100))
+            p.playVideo()
+          } catch {
+            return finish(false)
+          }
+          let tries = 0
+          const check = () => {
+            if (ytPlayedRef.current) return finish(true)
+            let t = 0
+            let st = -1
+            try {
+              t = p.getCurrentTime?.() || 0
+              st = p.getPlayerState?.()
+            } catch {}
+            if (t > 0.1 || st === 1) return finish(true)
+            if (tries === 0) {
+              tries = 1
+              try {
+                p.playVideo()
+              } catch {}
+              setTimeout(check, 1800)
+            } else {
+              finish(false)
+            }
+          }
+          setTimeout(check, 1200)
+        })
+        .catch(() => finish(false))
+    })
   }
 
   function recordRecent(track) {
@@ -262,16 +311,21 @@ export function PlayerProvider({ children }) {
       const res = await api.post('/music/full', { title: track.title, artist: track.artist })
       if (currentIdRef.current !== String(track.id)) return
       if (res.youtubeId) {
-        await playYoutube(res.youtubeId)
-        return
+        if (await playYoutube(res.youtubeId)) return
       }
       if (res.url) {
         ytModeRef.current = false
         const a = audioRef.current
+        fallbackPreviewRef.current = track.previewUrl || null
         a.src = res.url
         setFullStatus('full')
         setProgress(0)
         setDuration(0)
+        const clearFallback = () => {
+          fallbackPreviewRef.current = null
+          a.removeEventListener('playing', clearFallback)
+        }
+        a.addEventListener('playing', clearFallback)
         a.play().catch(() => setIsPlaying(false))
         return
       }
@@ -310,12 +364,9 @@ export function PlayerProvider({ children }) {
     setProgress(0)
     setDuration(0)
     a.src = track.previewUrl
-    a.pause()
-    setIsPlaying(false)
+    a.play().catch(() => setIsPlaying(false))
     if (needFull) {
       resolveFull(track)
-    } else {
-      a.play().catch(() => setIsPlaying(false))
     }
     ensureRadioBuffer()
   }

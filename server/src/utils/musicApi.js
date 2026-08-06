@@ -161,6 +161,20 @@ const pipedInstances = [
   'https://pipedapi.adminforge.de',
   'https://pipedapi.reallyaweso.me',
   'https://pipedapi.kavin.rocks',
+  'https://pipedapi.pipedeployadmin.com',
+  'https://pipedapi.birdsoft.eu.org',
+  'https://api.piped.yt',
+  'https://pipedapi.replicate.foundation',
+  'https://pipedapi.ducks.party',
+  'https://pipedapi.leptons.xyz',
+]
+
+const invidiousInstances = [
+  'https://invidious.materialio.us',
+  'https://yewtu.be',
+  'https://invidious.f5.si',
+  'https://invidious.nerdvpn.de',
+  'https://inv.nadeko.net',
 ]
 
 const instanceHealth = new Map()
@@ -180,24 +194,6 @@ function healthyInstances() {
 
 function getPipedInstances() {
   return healthyInstances()
-}
-
-async function firstSuccess(promises) {
-  let pending = promises.length
-  return new Promise((resolve, reject) => {
-    if (!pending) return reject(new Error('no instances'))
-    for (const p of promises) {
-      Promise.resolve(p).then(
-        (v) => {
-          if (v) resolve(v)
-          else if (--pending === 0) reject(new Error('no result'))
-        },
-        () => {
-          if (--pending === 0) reject(new Error('no result'))
-        }
-      )
-    }
-  })
 }
 
 async function resolveViaPiped(query, maxInstances = 4) {
@@ -229,26 +225,38 @@ async function resolveViaPiped(query, maxInstances = 4) {
 }
 
 async function getYoutubeId(query) {
-  const instances = getPipedInstances()
-  try {
-    return await firstSuccess(
-      instances.map(async (api) => {
-        try {
-          const { data } = await axios.get(`${api}/search`, {
-            params: { q: query, filter: 'music_songs' },
-            timeout: 9000,
-          })
+  const piped = pipedInstances.filter((api) => !isDown(api))
+  const tasks = []
+  for (const api of piped.slice(0, 8)) {
+    tasks.push(
+      axios
+        .get(`${api}/search`, { params: { q: query, filter: 'music_songs' }, timeout: 8000 })
+        .then(({ data }) => {
           const item = (data.items || []).find((i) => i.url?.includes('watch?v='))
           return item ? String(item.url).split('v=')[1] : null
-        } catch {
+        })
+        .catch(() => {
           markDown(api)
-          throw new Error('instance failed')
-        }
-      })
+          return null
+        })
     )
-  } catch {
-    return null
   }
+  for (const api of invidiousInstances) {
+    tasks.push(
+      axios
+        .get(`${api}/api/v1/search`, { params: { q: query, type: 'video' }, timeout: 8000 })
+        .then(({ data }) => {
+          const item = (Array.isArray(data) ? data : []).find((i) => i.videoId)
+          return item ? String(item.videoId) : null
+        })
+        .catch(() => null)
+    )
+  }
+  for (const p of tasks) {
+    const id = await p
+    if (id) return id
+  }
+  return null
 }
 
 const PLAYER_CLIENTS = [
@@ -317,6 +325,12 @@ export async function searchJamendo(q, limit = 24) {
   })
 }
 
+const withTimeout = (p, ms) =>
+  Promise.race([
+    p,
+    new Promise((resolve) => setTimeout(() => resolve(null), ms)),
+  ])
+
 export async function resolveFullTrack(title, artist = '') {
   const key = `${artist} - ${title}`
   const hit = fullCache.get(key)
@@ -328,16 +342,21 @@ export async function resolveFullTrack(title, artist = '') {
       return { url: jamendo.tracks[0].previewUrl }
     }
 
-    if (!process.env.RENDER) {
-      const yt = await resolveViaYtDlp(title, artist).catch(() => ({}))
-      if (yt.url) return { url: yt.url }
-
-      const piped = await resolveViaPiped(`${artist} ${title} official audio`).catch(() => null)
-      if (piped?.url) return { url: piped.url }
+    const [youtubeId, piped, ytUrl] = await Promise.all([
+      getYoutubeId(`${artist} ${title} official audio`).catch(() => null),
+      resolveViaPiped(`${artist} ${title} official audio`).catch(() => null),
+      process.env.RENDER
+        ? withTimeout(resolveViaYtDlp(title, artist), 12000)
+            .catch(() => null)
+            .then((r) => r?.url || null)
+        : Promise.resolve(null),
+    ])
+    if (youtubeId || piped?.url || ytUrl) {
+      return {
+        youtubeId: youtubeId || undefined,
+        url: piped?.url || ytUrl || undefined,
+      }
     }
-
-    const youtubeId = await getYoutubeId(`${artist} ${title} official audio`).catch(() => null)
-    if (youtubeId) return { youtubeId }
 
     return { error: 'No source available (Jamendo, YouTube, Piped all failed)' }
   }
