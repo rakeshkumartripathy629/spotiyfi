@@ -169,10 +169,10 @@ router.get('/track/:id', async (req, res) => {
 })
 
 router.post('/full', async (req, res) => {
-  const { title, artist, withUrl } = req.body || {}
+  const { title, artist, withUrl, videoId } = req.body || {}
   if (!title) return res.status(400).json({ error: 'title required' })
   try {
-    const result = await resolveFullTrack(title, artist || '', { withUrl: !!withUrl })
+    const result = await resolveFullTrack(title, artist || '', { withUrl: !!withUrl, videoId })
     if (!result || result.error) {
       const detail = result?.error || 'unknown'
       console.warn('[FULL] failed:', detail)

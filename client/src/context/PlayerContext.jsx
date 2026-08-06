@@ -41,6 +41,7 @@ export function PlayerProvider({ children }) {
   const ytPlayedRef = useRef(false)
   const fallbackPreviewRef = useRef(null)
   const fullResolveCacheRef = useRef(new Map())
+  const urlRequestRef = useRef(new Map())
   const ytApiPromiseRef = useRef(null)
 
   const [current, setCurrent] = useState(null)
@@ -185,7 +186,7 @@ export function PlayerProvider({ children }) {
       document.head.appendChild(tag)
       setTimeout(() => {
         resolve(window.YT?.Player ? window.YT : null)
-      }, 8000)
+      }, 3000)
     })
     return ytApiPromiseRef.current
   }
@@ -340,6 +341,22 @@ export function PlayerProvider({ children }) {
     a.play().catch(() => setIsPlaying(false))
   }
 
+  function getFullUrl(track, videoId) {
+    const key = `${track.artist || ''} - ${track.title}`
+    if (urlRequestRef.current.has(key)) return urlRequestRef.current.get(key)
+    const p = api
+      .post('/music/full', {
+        title: track.title,
+        artist: track.artist,
+        withUrl: true,
+        videoId,
+      })
+      .catch(() => null)
+      .finally(() => urlRequestRef.current.delete(key))
+    urlRequestRef.current.set(key, p)
+    return p
+  }
+
   async function resolveFull(track) {
     try {
       const key = `${track.artist || ''} - ${track.title}`
@@ -348,19 +365,25 @@ export function PlayerProvider({ children }) {
       const res = cached || (await api.post('/music/full', { title: track.title, artist: track.artist }))
       if (currentIdRef.current !== String(track.id)) return
       if (res.youtubeId) {
+        const urlP = getFullUrl(track, res.youtubeId)
         if (await playYoutube(res.youtubeId)) return
+        const u = await urlP
+        if (currentIdRef.current !== String(track.id)) return
+        if (u?.url) {
+          playFullUrl(u.url, track)
+          return
+        }
       }
       if (res.url) {
         playFullUrl(res.url, track)
         return
       }
-      const res2 = await api.post('/music/full', {
-        title: track.title,
-        artist: track.artist,
-        withUrl: true,
-      })
+      const res2 = await getFullUrl(track, res.youtubeId)
       if (currentIdRef.current !== String(track.id)) return
-      if (res2.url) {
+      if (res2?.youtubeId) {
+        if (await playYoutube(res2.youtubeId)) return
+      }
+      if (res2?.url) {
         playFullUrl(res2.url, track)
         return
       }

@@ -155,6 +155,7 @@ export async function resolveChartTrack(track) {
 }
 
 const fullCache = new Map()
+const fullUrlCache = new Map()
 
 const pipedInstances = [
   'https://api.piped.private.coffee',
@@ -217,6 +218,34 @@ async function resolveViaPiped(query, maxInstances = 4) {
         )
         .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))
       if (audios.length) return { url: audios[0].url }
+    } catch {
+      markDown(api)
+    }
+  }
+  return null
+}
+
+async function getPipedStreamUrl(videoId) {
+  const instances = getPipedInstances()
+  for (const api of instances.slice(0, 4)) {
+    try {
+      const { data: s } = await axios.get(`${api}/streams/${videoId}`, { timeout: 8000 })
+      const audios = (s.audioStreams || [])
+        .filter(
+          (a) =>
+            (a.mimeType || '').includes('audio') &&
+            !String(a.url).includes('.m3u8') &&
+            String(a.url).startsWith('http')
+        )
+        .sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))
+      if (audios.length) return audios[0].url
+      const vids = (s.videoStreams || []).filter(
+        (v) =>
+          (v.mimeType || '').includes('audio') &&
+          !String(v.url).includes('.m3u8') &&
+          String(v.url).startsWith('http')
+      )
+      if (vids.length) return vids[0].url
     } catch {
       markDown(api)
     }
@@ -340,15 +369,19 @@ const withTimeout = (p, ms) =>
 
 export async function resolveFullTrack(title, artist = '', opts = {}) {
   const key = `${artist} - ${title}`
-  const hit = fullCache.get(key)
+  const cache = opts.withUrl ? fullUrlCache : fullCache
+  const hit = cache.get(key)
   if (hit && Date.now() - hit.ts < FULL_TTL) return hit.data
-  if (inFlight.has(key)) return inFlight.get(key)
+  const inflightKey = opts.withUrl ? `u:${key}` : `i:${key}`
+  if (inFlight.has(inflightKey)) return inFlight.get(inflightKey)
   const run = async () => {
     if (opts.withUrl) {
+      const directUrl = opts.videoId ? await getPipedStreamUrl(opts.videoId) : null
+      if (directUrl) return { url: directUrl }
       const [piped, ytUrl] = await Promise.all([
         resolveViaPiped(`${artist} ${title} official audio`).catch(() => null),
         process.env.RENDER
-          ? withTimeout(resolveViaYtDlp(title, artist), 15000)
+          ? withTimeout(resolveViaYtDlp(title, artist), 8000)
               .catch(() => null)
               .then((r) => r?.url || null)
           : Promise.resolve(null),
@@ -378,12 +411,15 @@ export async function resolveFullTrack(title, artist = '', opts = {}) {
   }
   const p = run().then((data) => {
     if (!data?.error) {
-      fullCache.set(key, { data, ts: Date.now() })
-      pruneOldest(fullCache, FULL_MAX)
+      cache.set(key, { data, ts: Date.now() })
+      pruneOldest(cache, FULL_MAX)
+      if (!opts.withUrl && data.youtubeId && process.env.RENDER) {
+        resolveFullTrack(title, artist, { withUrl: true }).catch(() => {})
+      }
     }
     return data
   })
-  inFlight.set(key, p)
+  inFlight.set(inflightKey, p)
   return p
 }
 
