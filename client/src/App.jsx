@@ -5,6 +5,7 @@ import { LibraryProvider } from './context/LibraryContext'
 import Sidebar from './components/Sidebar'
 import PlayerBar from './components/PlayerBar'
 import MobileNav from './components/MobileNav'
+import TopBar from './components/TopBar'
 import Home from './pages/Home'
 import Search from './pages/Search'
 import Charts from './pages/Charts'
@@ -39,7 +40,9 @@ function Shell() {
     <div className="flex h-full flex-col bg-spotify-dark">
       <div className="flex min-h-0 flex-1">
         <Sidebar />
-        <main className="min-w-0 flex-1 overflow-y-auto pb-36 md:pb-28">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <TopBar />
+          <main className="min-w-0 flex-1 overflow-y-auto pb-36 md:pb-28">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/search" element={<Search />} />
@@ -50,7 +53,8 @@ function Shell() {
             <Route path="/playlist/:id" element={<Playlist />} />
             <Route path="/liked" element={user ? <Liked /> : <Navigate to="/login" />} />
           </Routes>
-        </main>
+          </main>
+        </div>
       </div>
       <MobileNav />
       <PlayerBar />
