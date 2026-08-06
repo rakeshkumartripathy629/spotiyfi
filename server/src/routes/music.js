@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { requireAuth } from '../middleware/auth.js'
 import {
   searchMusic,
   getAlbum,
@@ -148,9 +149,9 @@ router.get('/similar', async (req, res) => {
   }
 })
 
-router.get('/daily', async (req, res) => {
+router.get('/daily', requireAuth, async (req, res) => {
   try {
-    const tracks = await getDaily()
+    const tracks = await getDaily(req.authId)
     res.json({ tracks })
   } catch (err) {
     res.status(502).json({ error: 'Failed to load daily mix', detail: err.message })

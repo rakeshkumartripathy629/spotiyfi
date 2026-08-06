@@ -559,7 +559,7 @@ function seededShuffle(arr, seedStr) {
   return copy
 }
 
-export async function getDaily() {
+export async function getDailyPool() {
   const dayKey = new Date().toISOString().slice(0, 10)
   const key = `daily:${dayKey}`
   return cached(key, async () => {
@@ -577,8 +577,66 @@ export async function getDaily() {
         if (t.previewUrl && !seen.has(t.id)) seen.set(t.id, t)
       }
     }
-    return seededShuffle([...seen.values()], dayKey).slice(0, 10)
+    return [...seen.values()]
   })
+}
+
+export async function getUserTopArtists(userId) {
+  try {
+    const { default: User } = await import('../models/User.js')
+    const user = await User.findById(userId).select('favorites history')
+    const counts = {}
+    const bump = (name) => {
+      if (!name) return
+      counts[name] = (counts[name] || 0) + 1
+    }
+    for (const t of user?.favorites || []) bump(t.artist)
+    for (const t of user?.history || []) bump(t.artist)
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name]) => name)
+  } catch {
+    return []
+  }
+}
+
+export async function getArtistDailyTracks(artist) {
+  const dayKey = new Date().toISOString().slice(0, 10)
+  const key = `dailyArtist:${dayKey}:${artist}`
+  return cached(key, async () => {
+    try {
+      return await searchMusic(artist, 'IN', 25)
+    } catch {
+      return []
+    }
+  })
+}
+
+export async function getDaily(userId) {
+  const dayKey = new Date().toISOString().slice(0, 10)
+  const pool = await getDailyPool()
+  if (!pool.length) return []
+
+  const artists = userId ? await getUserTopArtists(userId) : []
+  const extra = []
+  if (artists.length) {
+    const settled = await Promise.allSettled(artists.map((a) => getArtistDailyTracks(a)))
+    for (const r of settled) if (r.status === 'fulfilled') extra.push(...r.value)
+  }
+
+  const seen = new Map(pool.map((t) => [t.id, t]))
+  for (const t of extra) if (t.previewUrl && !seen.has(t.id)) seen.set(t.id, t)
+  const all = [...seen.values()]
+
+  if (artists.length && extra.length) {
+    const guaranteed = seededShuffle(extra, `${dayKey}:${userId}:art`).slice(0, 5)
+    const rest = all.filter((t) => !guaranteed.some((g) => g.id === t.id))
+    const fill = seededShuffle(rest, `${dayKey}:${userId}`).slice(0, 10 - guaranteed.length)
+    return seededShuffle([...guaranteed, ...fill], `${dayKey}:${userId}:mix`).slice(0, 10)
+  }
+
+  return seededShuffle(all, `${dayKey}:${userId}`).slice(0, 10)
 }
 
 const MOODS = [
