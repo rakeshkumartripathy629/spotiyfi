@@ -191,11 +191,19 @@ export function PlayerProvider({ children }) {
     return ytApiPromiseRef.current
   }
 
-  function ensureYtPlayer(YT) {
-    if (ytPlayerRef.current) return
+  function ensureYtPlayer(YT, forceNew = false) {
+    if (ytPlayerRef.current && !forceNew) return
+    if (ytPlayerRef.current) {
+      try {
+        ytPlayerRef.current.destroy()
+      } catch {}
+      ytPlayerRef.current = null
+    }
+    document.getElementById('sqyt-holder')?.remove()
     const el = document.createElement('div')
+    el.id = 'sqyt-holder'
     el.style.cssText =
-      'position:fixed;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;overflow:hidden;'
+      'position:fixed;right:0;bottom:0;width:1px;height:1px;opacity:0.01;pointer-events:none;overflow:hidden;z-index:0;'
     document.body.appendChild(el)
     const player = new YT.Player(el, {
       playerVars: { autoplay: 1, playsinline: 1, iv_load_policy: 3, rel: 0 },
@@ -219,7 +227,7 @@ export function PlayerProvider({ children }) {
       const iframe = player.getIframe?.()
       if (iframe) {
         iframe.style.cssText =
-          'position:fixed;left:0;top:0;width:0;height:0;opacity:0;pointer-events:none;border:0;'
+          'position:fixed;right:0;bottom:0;width:1px;height:1px;opacity:0.01;pointer-events:none;border:0;'
         try {
           iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture')
         } catch {}
@@ -292,11 +300,24 @@ export function PlayerProvider({ children }) {
               st = p.getPlayerState?.()
             } catch {}
             if (t > 0.1 || st === 1) return finish(true)
-            if (tries === 0) {
-              tries = 1
-              try {
-                p.playVideo()
-              } catch {}
+            if (tries < 2) {
+              tries++
+              if (tries === 1) {
+                try {
+                  p.playVideo()
+                } catch {}
+              } else {
+                try {
+                  ensureYtPlayer(YT, true)
+                  const np = ytPlayerRef.current
+                  if (np) {
+                    np.mute()
+                    np.loadVideoById(videoId)
+                    np.setVolume(Math.round(volumeRef.current * 100))
+                    np.playVideo()
+                  }
+                } catch {}
+              }
               setTimeout(check, 1800)
             } else {
               finish(false)
