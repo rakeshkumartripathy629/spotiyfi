@@ -32,7 +32,7 @@ export default function MobileNav() {
           title="Log out"
         >
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-spotify-green text-[10px] font-bold text-black">
-            {user.name[0]?.toUpperCase()}
+            {user.name?.[0]?.toUpperCase()}
           </span>
           Logout
         </button>

@@ -83,11 +83,11 @@ export default function Sidebar() {
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-spotify-green font-bold text-black">
-                {user.name[0]?.toUpperCase()}
+                {user.name?.[0]?.toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">{user.name}</p>
-                <p className="truncate text-xs text-spotify-text">{user.email}</p>
+                <p className="truncate text-sm font-semibold text-white">{user.name || 'User'}</p>
+                <p className="truncate text-xs text-spotify-text">{user.email || ''}</p>
               </div>
             </div>
             <button

@@ -76,7 +76,7 @@ export default function Home() {
   return (
     <div className="p-6">
       <h1 className="mb-6 text-3xl font-bold">
-        {user ? `${greeting}, ${(user.name || 'User').split(' ')[0]}` : greeting}
+        {user?.name ? `${greeting}, ${user.name.split(' ')[0]}` : greeting}
       </h1>
 
       {loading ? (
