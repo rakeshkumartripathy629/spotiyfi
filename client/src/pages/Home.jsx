@@ -104,47 +104,47 @@ export default function Home() {
             </div>
           )}
 
-          {daily.length > 0 && (
-            <section className="mb-8">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-xl font-bold">Aaj ke 10 gaane</h2>
-                <button
-                  onClick={() => playTracks(daily, 0)}
-                  className="flex items-center gap-1.5 rounded-full bg-spotify-green px-4 py-1.5 text-sm font-bold text-black transition hover:scale-105"
-                >
-                  <Play className="h-4 w-4 fill-current" /> Play all
-                </button>
-              </div>
-              <div className="flex snap-x gap-3 overflow-x-auto pb-2">
-                {daily.map((t, i) => (
-                  <button
-                    key={t.id}
-                    onClick={() => playTracks(daily, i)}
-                    className="group w-32 shrink-0 snap-start text-left"
-                  >
-                    <div className="relative">
-                      <img
-                        src={t.artwork || fallbackArtwork(t.title)}
-                        alt={t.title}
-                        className="aspect-square w-full rounded-lg object-cover"
-                      />
-                      <span className="absolute bottom-1.5 right-1.5 hidden h-9 w-9 items-center justify-center rounded-full bg-spotify-green text-black shadow-lg group-hover:flex">
-                        <Play className="h-4 w-4 fill-current pl-0.5" />
-                      </span>
-                      <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                        {i + 1}
-                      </span>
-                    </div>
-                    <p className="mt-2 truncate text-sm font-semibold text-white">{t.title}</p>
-                    <p className="truncate text-xs text-spotify-text">{t.artist}</p>
-                  </button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {(recent.length > 0 || fresh.length > 0) && (
+          {(daily.length > 0 || recent.length > 0) && (
             <div className="mb-8 grid items-start gap-8 lg:grid-cols-2">
+              {daily.length > 0 && (
+                <section className="min-w-0">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h2 className="text-xl font-bold">Aaj ke 10 gaane</h2>
+                    <button
+                      onClick={() => playTracks(daily, 0)}
+                      className="flex items-center gap-1.5 rounded-full bg-spotify-green px-4 py-1.5 text-sm font-bold text-black transition hover:scale-105"
+                    >
+                      <Play className="h-4 w-4 fill-current" /> Play all
+                    </button>
+                  </div>
+                  <div className="flex snap-x gap-3 overflow-x-auto pb-2">
+                    {daily.map((t, i) => (
+                      <button
+                        key={t.id}
+                        onClick={() => playTracks(daily, i)}
+                        className="group w-32 shrink-0 snap-start text-left"
+                      >
+                        <div className="relative">
+                          <img
+                            src={t.artwork || fallbackArtwork(t.title)}
+                            alt={t.title}
+                            className="aspect-square w-full rounded-lg object-cover"
+                          />
+                          <span className="absolute bottom-1.5 right-1.5 hidden h-9 w-9 items-center justify-center rounded-full bg-spotify-green text-black shadow-lg group-hover:flex">
+                            <Play className="h-4 w-4 fill-current pl-0.5" />
+                          </span>
+                          <span className="absolute left-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                            {i + 1}
+                          </span>
+                        </div>
+                        <p className="mt-2 truncate text-sm font-semibold text-white">{t.title}</p>
+                        <p className="truncate text-xs text-spotify-text">{t.artist}</p>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {recent.length > 0 && (
                 <section className="min-w-0">
                   <h2 className="mb-3 text-xl font-bold">
@@ -160,17 +160,18 @@ export default function Home() {
                   </div>
                 </section>
               )}
-              {fresh.length > 0 && (
-                <section className="min-w-0">
-                  <h2 className="mb-3 text-xl font-bold">Fresh & recent</h2>
-                  <div className="overflow-hidden rounded-md bg-spotify-card/50">
-                    {fresh.slice(0, 8).map((t, i) => (
-                      <TrackRow key={`f-${t.id}`} track={t} index={i} list={fresh} showAlbum />
-                    ))}
-                  </div>
-                </section>
-              )}
             </div>
+          )}
+
+          {fresh.length > 0 && (
+            <section className="mb-8">
+              <h2 className="mb-3 text-xl font-bold">Fresh & recent</h2>
+              <div className="overflow-hidden rounded-md bg-spotify-card/50">
+                {fresh.slice(0, 10).map((t, i) => (
+                  <TrackRow key={`f-${t.id}`} track={t} index={i} list={fresh} showAlbum />
+                ))}
+              </div>
+            </section>
           )}
 
           {moods.length > 0 && (
