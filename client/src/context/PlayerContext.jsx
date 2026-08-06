@@ -182,7 +182,7 @@ export function PlayerProvider({ children }) {
         resolve(window.YT)
       }
       const tag = document.createElement('script')
-      tag.src = 'https://www.youtube.com/iframe_api'
+      tag.src = 'https://www.youtube-nocookie.com/iframe_api'
       document.head.appendChild(tag)
       setTimeout(() => {
         resolve(window.YT?.Player ? window.YT : null)
@@ -200,10 +200,13 @@ export function PlayerProvider({ children }) {
       ytPlayerRef.current = null
     }
     document.getElementById('sqyt-holder')?.remove()
+    try {
+      YT.setConfig?.({ host: 'https://www.youtube-nocookie.com' })
+    } catch {}
     const el = document.createElement('div')
     el.id = 'sqyt-holder'
     el.style.cssText =
-      'position:fixed;right:0;bottom:0;width:1px;height:1px;opacity:0.01;pointer-events:none;overflow:hidden;z-index:0;'
+      'position:fixed;top:0;left:-10000px;width:320px;height:180px;opacity:0.01;pointer-events:none;overflow:hidden;z-index:0;'
     document.body.appendChild(el)
     const player = new YT.Player(el, {
       playerVars: { autoplay: 1, playsinline: 1, iv_load_policy: 3, rel: 0 },
@@ -227,7 +230,7 @@ export function PlayerProvider({ children }) {
       const iframe = player.getIframe?.()
       if (iframe) {
         iframe.style.cssText =
-          'position:fixed;right:0;bottom:0;width:1px;height:1px;opacity:0.01;pointer-events:none;border:0;'
+          'position:fixed;top:0;left:-10000px;width:320px;height:180px;opacity:0.01;pointer-events:none;border:0;'
         try {
           iframe.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture')
         } catch {}
