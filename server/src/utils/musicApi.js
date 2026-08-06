@@ -253,6 +253,20 @@ async function getPipedStreamUrl(videoId) {
   return null
 }
 
+function firstUrl(...promises) {
+  return new Promise((resolve) => {
+    let pending = promises.length
+    if (!pending) return resolve(null)
+    for (const p of promises) {
+      Promise.resolve(p).then((u) => {
+        const v = typeof u === 'string' ? u : u?.url || null
+        if (v) resolve(v)
+        else if (--pending === 0) resolve(null)
+      })
+    }
+  })
+}
+
 async function raceIds(tasks) {
   return new Promise((resolve) => {
     let pending = tasks.length
@@ -376,18 +390,13 @@ export async function resolveFullTrack(title, artist = '', opts = {}) {
   if (inFlight.has(inflightKey)) return inFlight.get(inflightKey)
   const run = async () => {
     if (opts.withUrl) {
-      const directUrl = opts.videoId ? await getPipedStreamUrl(opts.videoId) : null
-      if (directUrl) return { url: directUrl }
-      const [piped, ytUrl] = await Promise.all([
-        resolveViaPiped(`${artist} ${title} official audio`).catch(() => null),
-        process.env.RENDER
-          ? withTimeout(resolveViaYtDlp(title, artist), 8000)
-              .catch(() => null)
-              .then((r) => r?.url || null)
-          : Promise.resolve(null),
-      ])
-      const url = piped?.url || ytUrl || null
+      const url = await firstUrl(
+        opts.videoId ? getPipedStreamUrl(opts.videoId) : Promise.resolve(null),
+        withTimeout(resolveViaYtDlp(title, artist), process.env.RENDER ? 25000 : 15000)
+      )
       if (url) return { url }
+      const piped = await resolveViaPiped(`${artist} ${title} official audio`).catch(() => null)
+      if (piped?.url) return { url: piped.url }
       return { error: 'No url source available (Piped, yt-dlp failed)' }
     }
 

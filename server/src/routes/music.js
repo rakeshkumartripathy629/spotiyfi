@@ -1,4 +1,6 @@
 import { Router } from 'express'
+import http from 'http'
+import https from 'https'
 import { requireAuth } from '../middleware/auth.js'
 import {
   searchMusic,
@@ -168,6 +170,23 @@ router.get('/track/:id', async (req, res) => {
   }
 })
 
+router.get('/proxy', (req, res) => {
+  const u = String(req.query.u || '')
+  if (!u.startsWith('http')) return res.status(400).json({ error: 'bad url' })
+  const mod = u.startsWith('https') ? https : http
+  const headers = {}
+  if (req.headers.range) headers.Range = req.headers.range
+  const upstream = mod.get(u, { headers }, (up) => {
+    res.writeHead(up.statusCode, up.headers)
+    up.pipe(res)
+  })
+  upstream.on('error', () => {
+    if (!res.headersSent) res.status(502).json({ error: 'proxy failed' })
+    else res.destroy()
+  })
+  req.on('close', () => upstream.destroy())
+})
+
 router.post('/full', async (req, res) => {
   const { title, artist, withUrl, videoId } = req.body || {}
   if (!title) return res.status(400).json({ error: 'title required' })
@@ -179,7 +198,8 @@ router.post('/full', async (req, res) => {
       return res.status(404).json({ error: 'Could not resolve full track', detail })
     }
     if (result.youtubeId) return res.json({ youtubeId: result.youtubeId })
-    res.json({ url: result.url })
+    const base = `${req.protocol}://${req.get('host')}`
+    res.json({ url: `${base}/api/music/proxy?u=${encodeURIComponent(result.url)}` })
   } catch (err) {
     res.status(502).json({ error: err.message })
   }
