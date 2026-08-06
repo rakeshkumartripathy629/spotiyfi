@@ -17,7 +17,7 @@ export default function TopBar() {
   }, [open])
 
   return (
-    <header className="relative z-20 flex items-center justify-end border-b border-spotify-hover/60 bg-spotify-dark/95 px-4 py-2 md:px-6">
+    <header className="relative z-20 hidden items-center justify-end border-b border-spotify-hover/60 bg-spotify-dark/95 px-4 py-2 md:flex md:px-6">
       <div className="relative" ref={ref}>
         <button
           onClick={() => setOpen((o) => !o)}
